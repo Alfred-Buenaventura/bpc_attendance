@@ -124,9 +124,6 @@ if ($firstLogin):
                     <label>New Password</label>
                     <div class="password-input">
                         <input type="password" name="new_password" id="newPassField" class="form-control" minlength="8" required>
-                        <button type="button" class="toggle-password" onclick="toggleVisibility('newPassField', 'newPassEye')">
-                            <i id="newPassEye" class="fa-solid fa-eye"></i>
-                        </button>
                     </div>
                     <p style="font-size: 12px; color: var(--gray-600); margin-top: 4px;">
                         Must be at least 8 characters long
@@ -137,10 +134,14 @@ if ($firstLogin):
                     <label>Confirm New Password</label>
                     <div class="password-input">
                         <input type="password" name="confirm_password" id="confirmPassField" class="form-control" minlength="8" required>
-                        <button type="button" class="toggle-password" onclick="toggleVisibility('confirmPassField', 'confirmPassEye')">
-                            <i id="confirmPassEye" class="fa-solid fa-eye"></i>
-                        </button>
                     </div>
+                </div>
+
+                <div class="form-group" style="margin-top: -8px; margin-bottom: 24px;">
+                    <label class="checkbox" style="font-size: 14px; color: var(--gray-700);">
+                        <input type="checkbox" id="toggleNewPasswords">
+                        <span>Show new password</span>
+                    </label>
                 </div>
                 
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
@@ -249,27 +250,15 @@ endif;
 
 <script>
     function toggleVisibility(fieldId, iconId) {
-        const field = document.getElementById(fieldId);
-        const icon = document.getElementById(iconId);
-        if (!field || !icon) return;
-
-        if (field.type === 'password') {
-            field.type = 'text';
-            icon.className = 'fa-solid fa-eye-slash'; // Toggle to "slash" eye
-        } else {
-            field.type = 'password';
-            icon.className = 'fa-solid fa-eye'; // Toggle to "regular" eye
-        }
+        // ... (existing function, leave it as is) ...
     }
 
     // Modal functions
     function openModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) modal.style.display = 'flex';
+        // ... (existing function, leave it as is) ...
     }
     function closeModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) modal.style.display = 'none';
+        // ... (existing function, leave it as is) ...
     }
 
     // Run this script only for the first login scenario
@@ -277,19 +266,25 @@ endif;
     document.addEventListener('DOMContentLoaded', function() {
         // Automatically open the modal on page load
         openModal('firstLoginModal');
+
+        // --- NEW: Add logic for the checkbox ---
+        const toggleCheckbox = document.getElementById('toggleNewPasswords');
+        const newPassField = document.getElementById('newPassField');
+        const confirmPassField = document.getElementById('confirmPassField');
+
+        if (toggleCheckbox && newPassField && confirmPassField) {
+            toggleCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    newPassField.type = 'text';
+                    confirmPassField.type = 'text';
+                } else {
+                    newPassField.type = 'password';
+                    confirmPassField.type = 'password';
+                }
+            });
+        }
+        // --- END NEW ---
     });
     <?php endif; ?>
     // --- END ---
 </script>
-
-<?php
-// --- Conditionally load footer ---
-if ($firstLogin) {
-    // Just close the body and html tags
-    echo '</body></html>';
-} else {
-    // Load the full dashboard footer
-    include 'includes/footer.php';
-}
-// --- END ---
-?>

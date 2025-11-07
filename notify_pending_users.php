@@ -12,12 +12,19 @@ if (!isAdmin()) {
 
 $db = db();
 $notifiedCount = 0;
+
+// This is the main notification message
 $message = "Reminder: Your account registration is incomplete. Please visit the IT office for fingerprint registration to activate your account.";
 $type = 'warning';
 
 try {
-    // 1. Find all users with pending fingerprint registration
-    $stmt = $db->prepare("SELECT id FROM users WHERE status = 'pending_fingerprint'");
+    // 1. MODIFIED QUERY: Fetch id, email, and first_name for all pending users
+    // This query now matches the logic from complete_registration.php
+    $stmt = $db->prepare("
+        SELECT id, email, first_name 
+        FROM users 
+        WHERE status = 'active' AND fingerprint_registered = 0
+    ");
     $stmt->execute();
     $pendingUsers = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -26,27 +33,14 @@ try {
         exit;
     }
 
-    // 2. Prepare the notification insert statement
-    $insertStmt = $db->prepare("
-        INSERT INTO notifications (user_id, message, type)
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE 
-        message = VALUES(message), 
-        type = VALUES(type), 
-        is_read = 0, 
-        created_at = CURRENT_TIMESTAMP
-    ");
-    // Note: "ON DUPLICATE KEY" requires a unique index on (user_id, type) or similar.
-    // For simplicity, we'll just insert, but a real-world app might prevent spamming.
-    // Let's modify the logic to only insert if one doesn't already exist.
-
+    // Prepare statements for checking and inserting notifications
     $insertStmt = $db->prepare("INSERT INTO notifications (user_id, message, type) VALUES (?, ?, ?)");
-
     $checkStmt = $db->prepare("SELECT id FROM notifications WHERE user_id = ? AND message = ? AND is_read = 0");
-
 
     foreach ($pendingUsers as $user) {
         $userId = $user['id'];
+        $email = $user['email'];
+        $firstName = $user['first_name'];
 
         // Check if an identical, unread notification already exists
         $checkStmt->bind_param("is", $userId, $message);
@@ -54,17 +48,29 @@ try {
         $existing = $checkStmt->get_result()->fetch_assoc();
 
         if (!$existing) {
-            // No existing unread notification found, so insert a new one
+            // 1. Create the dashboard notification
             $insertStmt->bind_param("iss", $userId, $message, $type);
             $insertStmt->execute();
+            
             if ($insertStmt->affected_rows > 0) {
                 $notifiedCount++;
+
+                // 2. --- NEW: Send the email ---
+                $emailSubject = "BPC Attendance: Fingerprint Registration Reminder";
+                $emailMessage = "Hi " . htmlspecialchars($firstName) . ",<br><br>"
+                                . $message 
+                                . "<br><br>Thank you,<br>BPC Administration";
+                
+                // Call the existing sendEmail function from config.php
+                sendEmail($email, $emailSubject, $emailMessage);
+                // --- END NEW ---
             }
         }
     }
 
     if ($notifiedCount > 0) {
-        logActivity($_SESSION['user_id'], 'Sent Notifications', "Sent $notifiedCount fingerprint registration reminders.");
+        // --- MODIFIED: Updated log message ---
+        logActivity($_SESSION['user_id'], 'Sent Notifications', "Sent $notifiedCount fingerprint registration reminders via dashboard and email.");
         echo json_encode(['success' => true, 'message' => "Successfully sent $notifiedCount notifications."]);
     } else {
         echo json_encode(['success' => true, 'message' => 'All pending users have already been notified.']);
