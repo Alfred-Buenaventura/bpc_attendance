@@ -128,3 +128,337 @@ body, html {
     color: var(--gray-600, #4b5563);
     margin-top: 1.5rem;
 }
+
+.nav-badge {
+    background-color: var(--red-600);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 12px;
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+.sidebar.collapsed .nav-badge {
+    top: 8px;
+    right: 8px;
+    padding: 1px 4px;
+    font-size: 9px;
+}
+
+/* New Modal for all notifications */
+#allNotificationsModal .modal-content {
+    max-width: 800px;
+}
+.notification-list {
+    max-height: 60vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 10px; /* for scrollbar */
+}
+.notification-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    align-items: flex-start;
+}
+/* FIXED: Toned down the unread background color further */
+.notification-item.unread {
+    background: #f8fafc; /* slate-50 */
+    border: 1px solid var(--gray-200); /* Removed green border */
+}
+.notification-item-icon {
+    font-size: 1.5rem;
+    padding-top: 2px;
+}
+/* FIXED: Toned down icon colors further */
+.notification-item-icon.type-success { color: var(--emerald-400); }
+.notification-item-icon.type-warning { color: var(--yellow-400); }
+.notification-item-icon.type-info { color: var(--blue-400); }
+
+.notification-item-content {
+    flex-grow: 1;
+}
+.notification-item-content p {
+    font-size: 1rem;
+    color: var(--gray-700);
+    margin: 0;
+    line-height: 1.5;
+}
+.notification-item-content span {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    margin-top: 4px;
+}
+.notification-list-empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--gray-500);
+}
+.notification-list-empty i {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+    color: var(--gray-300);
+}
+
+/* Style the Filter & Export card header */
+.filter-export-section .card-header {
+    background: var(--emerald-600);
+    color: white;
+    border-radius: 12px 12px 0 0; /* Match card radius */
+}
+.filter-export-section .card-header h3,
+.filter-export-section .card-header p {
+    color: white;
+}
+.filter-export-section .card-header i {
+    color: var(--emerald-100);
+    margin-right: 4px;
+}
+.filter-export-section .card-body {
+    background: var(--emerald-50); /* Light green background for the form */
+}
+
+/* Make calendar/date inputs bigger */
+.filter-controls-new input[type="date"].form-control {
+    padding: 0.75rem 0.5rem;
+    font-size: 1rem;
+    line-height: 1.25rem;
+}
+
+/* Make table text bigger and bolder */
+.attendance-table-new tbody td {
+    font-weight: 500; /* Bolder */
+    font-size: 1rem; /* Bigger */
+    color: var(--gray-700);
+}
+.attendance-table-new .user-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.attendance-table-new .user-id {
+    font-size: 0.9rem;
+}
+
+/* Make Time In/Out spans bigger and darker */
+.time-cell {
+    padding: 0.5rem 0.75rem; /* Bigger span */
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.time-cell.time-in {
+    color: var(--emerald-700); /* Darker green */
+}
+.time-cell.time-out {
+    color: var(--red-700); /* Darker red */
+}
+.time-cell .status-label {
+    margin-left: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* --- END NEW STYLES --- */
+
+/* --- Filter Card Header Color --- */
+.report-filter-card-admin .card-header {
+    background-color: var(--emerald-600);
+    color: white;
+}
+.report-filter-card-admin .card-header p {
+    color: var(--emerald-100);
+}
+/* User-side filter card */
+.report-filter-card-user .card-header {
+    background-color: var(--blue-600);
+    color: white;
+}
+.report-filter-card-user .card-header p {
+    color: var(--blue-100);
+}
+
+
+/* --- Bigger Calendar/Date Inputs --- */
+.report-date-input {
+    font-size: 1rem; /* Bigger font */
+    padding: 0.65rem 0.75rem; /* Taller input */
+    line-height: 1.25;
+}
+
+
+/* --- Table Text Bolder & Bigger --- */
+.attendance-table-new {
+    font-size: 15px; /* Slightly larger base font */
+}
+.attendance-table-new th {
+    font-size: 13px; /* Smaller header */
+}
+
+.attendance-table-new .user-name {
+    font-weight: 600; /* Bolder */
+}
+.attendance-table-new .date-cell {
+    font-weight: 600; /* Bolder */
+    font-size: 1rem; /* 16px */
+}
+
+/* --- Time In / Time Out Styles --- */
+.attendance-table-new .time-cell {
+    padding: 0.75rem 1rem; /* Bigger span (more padding) */
+}
+.attendance-table-new .time-cell span {
+    font-size: 1.1rem; /* 17.6px */
+    font-weight: 600; /* Bolder */
+    display: block;
+    line-height: 1.4;
+}
+.attendance-table-new .time-cell i {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+/* Darker Colors */
+.attendance-table-new .time-cell.time-in {
+    color: var(--emerald-800); /* Darker green */
+}
+.attendance-table-new .time-cell.time-out {
+    color: var(--red-800); /* Darker red */
+}
+
+/* Status Label Colors */
+.attendance-table-new .status-label {
+    font-size: 0.75rem; /* 12px */
+    font-weight: 700;
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-top: 4px;
+}
+.attendance-table-new .status-label.status-late {
+    background-color: var(--yellow-100);
+    color: var(--yellow-700);
+}
+.attendance-table-new .status-label.status-absent {
+    background-color: var(--red-100);
+    color: var(--red-700);
+}
+
+/* ==============================================
+NEW STYLES FOR DTR PRINT PAGE (print_dtr.php)
+==============================================
+*/
+.dtr-day-disabled {
+    background: #eee; 
+    height: 100%; 
+    width: 100%;
+    color: #999;
+}
+
+/* ==============================================
+NEW STYLES FOR ADMIN "ALL USERS" SCHEDULE ACCORDION
+==============================================
+*/
+.user-schedule-accordion {
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.user-schedule-group {
+    border-bottom: 1px solid var(--gray-200);
+}
+.user-schedule-group:last-child {
+    border-bottom: 0;
+}
+
+.user-schedule-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--gray-50);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: none;
+    text-align: left;
+}
+.user-schedule-header:hover {
+    background: var(--gray-100);
+}
+.user-schedule-header.active {
+    background: white;
+}
+
+.user-schedule-info {
+    flex-grow: 1;
+}
+.user-schedule-info .user-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    display: block;
+}
+.user-schedule-info .user-id {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    font-family: monospace;
+}
+
+.user-schedule-stats {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin-right: 1.5rem;
+}
+.user-schedule-stats strong {
+    color: var(--gray-900);
+    font-weight: 600;
+}
+
+.schedule-group-icon {
+    font-size: 1rem;
+    color: var(--gray-400);
+    transition: transform 0.2s ease;
+}
+.user-schedule-header.active .schedule-group-icon {
+    transform: rotate(180deg);
+}
+
+.user-schedule-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    background: white;
+}
+
+/* This is the table *inside* the accordion */
+.schedule-table-inner {
+    width: 100%;
+    border-collapse: collapse;
+}
+.schedule-table-inner thead {
+    background: var(--gray-100);
+}
+.schedule-table-inner th,
+.schedule-table-inner td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--gray-200);
+}
+.schedule-table-inner .table-day-highlight {
+    font-weight: 600;
+    color: var(--emerald-700);
+}
+.schedule-table-inner .vacant-row td {
+    border-top: 1px solid var(--blue-200);
+    border-bottom: 1px solid var(--blue-200);
+}
