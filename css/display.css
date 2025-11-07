@@ -3,15 +3,18 @@
  * This file styles the 'display.php' page.
  */
 
-body, html {
+body.dtr-body, 
+html {
     height: 100%;
     margin: 0;
-    /* Use 'Inter' from your main style.css */
     font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; 
-    overflow: hidden;
-    /* Use background color from your main style.css */
     background: var(--gray-50, #f9fafb); 
     color: var(--gray-900, #111827);
+}
+
+/* Only hide overflow for the display page specifically */
+body.display-body {
+    overflow: hidden;
 }
 
 .display-container {

@@ -101,6 +101,7 @@ body {
     background: var(--gray-50);
     color: var(--gray-900);
     line-height: 1.5;
+    overflow-y: auto;
 }
 /* Global Styles End */
 
@@ -204,10 +205,12 @@ body {
 .dashboard-container {
     display: flex;
     min-height: 100vh;
+    height: 100vh; /* Add this line */
     background: var(--gray-50);
     position: relative;
     transition: padding-left var(--transition-medium);
     padding-left: var(--sidebar-width);
+    overflow: hidden; /* Add this line to prevent double scrollbars */
 }
 /* Dashboard Layout End */
 
@@ -555,6 +558,8 @@ body {
     width: 100%;
     transition: width var(--transition-medium);
     overflow-x: hidden;
+    overflow-y: auto; /* Add this line */
+    height: 100vh; /* Add this line to ensure proper scrolling */
 }
 /* Main Content Area End */
 
