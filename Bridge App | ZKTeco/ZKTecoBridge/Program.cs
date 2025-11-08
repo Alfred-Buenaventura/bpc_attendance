@@ -1,43 +1,37 @@
 ﻿using System;
-using System.Collections.Generic; // Needed for List
+using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;     // Added for Task.Run
+using System.Threading.Tasks;     // Keep this for Task.Run... wait, no, we are removing it.
+using System.Net.Http;          // Added for HTTP requests
 using WebSocketSharp;
 using WebSocketSharp.Server;
 using Newtonsoft.Json;
-using libzkfpcsharp;              // ZKTeco SDK Namespace
+using libzkfpcsharp;
 
-/// <summary>
-/// WebSocket Service that handles all communication with the ZKTeco scanner.
-/// This class is now static-aware, meaning the SDK is initialized ONCE
-/// and shared by all connecting clients.
-/// </summary>
 public class FingerprintService : WebSocketBehavior
 {
     // --- SDK and Device Handles (STATIC) ---
-    // These are shared by all connections, initialized ONCE by the static constructor.
     private static IntPtr zkTecoDeviceHandle = IntPtr.Zero;
-    private static IntPtr mDBHandle = IntPtr.Zero; // Handle for SDK's in-memory cache/DB
+    private static IntPtr mDBHandle = IntPtr.Zero;
     private static bool sdkInitialized = false;
     private static bool deviceConnected = false;
     private static int imageWidth = 0;
     private static int imageHeight = 0;
     private static byte[] imgBuffer = null;
 
-    // --- State Flag (STATIC) ---
-    // 'isEnrolling' must also be static, as only one enrollment can happen 
-    // on the single physical device at a time, regardless of connected clients.
-    private static volatile bool isEnrolling = false; // 'volatile' ensures thread-safety
+    // --- State Flags (STATIC) ---
+    private static volatile bool isEnrolling = false;
+    private static volatile bool isVerifying = false;
 
     /// <summary>
-    /// Static Constructor. This runs ONCE when the very first client connects.
-    /// It's responsible for initializing the SDK and opening the device.
+    /// Static Constructor: Initializes SDK, DB, and Device.
+    /// NOW ALSO loads all templates from the PHP web server.
     /// </summary>
     static FingerprintService()
     {
         Console.WriteLine("[Static Constructor] Initializing ZKFinger SDK (zkfp2.Init)...");
         int ret = zkfp2.Init();
-        if (ret == 0) // OK
+        if (ret == 0)
         {
             sdkInitialized = true;
             Console.WriteLine("[Static Constructor] SDK Initialized. Initializing DB Cache (zkfp2.DBInit)...");
@@ -45,8 +39,8 @@ public class FingerprintService : WebSocketBehavior
             mDBHandle = zkfp2.DBInit();
             if (mDBHandle == IntPtr.Zero)
             {
-                Console.WriteLine("[Static Constructor] ERROR: Could not initialize DB Cache (DBInit failed).");
-                return; // SDK remains initialized, but DB functions will fail
+                Console.WriteLine("[Static Constructor] ERROR: Could not initialize DB Cache.");
+                return;
             }
             Console.WriteLine("[Static Constructor] DB Cache Initialized.");
 
@@ -54,7 +48,7 @@ public class FingerprintService : WebSocketBehavior
             zkTecoDeviceHandle = zkfp2.OpenDevice(0);
             if (zkTecoDeviceHandle == IntPtr.Zero)
             {
-                Console.WriteLine("[Static Constructor] ERROR: Could not open device. Is it connected?");
+                Console.WriteLine("[Static Constructor] ERROR: Could not open device.");
                 return;
             }
             deviceConnected = true;
@@ -75,6 +69,12 @@ public class FingerprintService : WebSocketBehavior
             {
                 Console.WriteLine("[Static Constructor] ERROR: Could not get image dimensions.");
             }
+
+            // --- *** FIX: Replaced Task.Run with new Thread *** ---
+            Console.WriteLine("[Static Constructor] Starting background thread to load templates...");
+            // We must use a ParameterizedThreadStart to pass 'this' safely
+            new Thread(() => LoadTemplatesFromWebServer()).Start();
+            // ------------------------------------------------------
         }
         else
         {
@@ -83,46 +83,118 @@ public class FingerprintService : WebSocketBehavior
     }
 
     /// <summary>
-    /// Called by Program.Main() when the server is shutting down.
-    /// Cleans up all static SDK resources.
+    /// NEW METHOD: Fetches all templates from the PHP API and loads them into the SDK cache.
+    /// This now runs on its own dedicated thread.
     /// </summary>
+    private static async void LoadTemplatesFromWebServer() // Must be static now
+    {
+        // IMPORTANT: Adjust this URL to match your server path
+        string url = "http://127.0.0.1/bpc_attendance/api/get_all_templates.php";
+
+        Console.WriteLine($"[LoadTemplates] Fetching from {url} ...");
+
+        using (HttpClient client = new HttpClient())
+        {
+            try
+            {
+                // Using .Result blocks this thread, which is fine since it's a background thread
+                HttpResponseMessage response = client.GetAsync(url).Result;
+                if (response.IsSuccessStatusCode)
+                {
+                    string jsonString = response.Content.ReadAsStringAsync().Result;
+                    dynamic result = JsonConvert.DeserializeObject(jsonString);
+
+                    if (result.success == true)
+                    {
+                        int count = 0;
+                        int failed = 0;
+                        foreach (var user in result.data)
+                        {
+                            try
+                            {
+                                int userId = user.id;
+                                string templateBase64 = user.fingerprint_template;
+                                byte[] template = Convert.FromBase64String(templateBase64);
+
+                                int ret = zkfp2.DBAdd(mDBHandle, userId, template);
+                                if (ret == 0)
+                                {
+                                    count++;
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[LoadTemplates] Failed to add template for user {userId}. Error: {GetErrorMsg(ret)}");
+                                    failed++;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[LoadTemplates] Error parsing template for user: {ex.Message}");
+                                failed++;
+                            }
+                        }
+                        Console.WriteLine($"[LoadTemplates] SUCCESS: Loaded {count} templates into SDK cache. {failed} failed.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[LoadTemplates] Web server returned error: {result.message}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[LoadTemplates] HTTP Error: {response.StatusCode}. Is the web server running?");
+                }
+            }
+            catch (Exception ex)
+            {
+                // This catch block is important because HTTP errors can be noisy
+                Console.WriteLine($"[LoadTemplates] CRITICAL: Failed to connect to web server.");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[LoadTemplates] Error: {ex.InnerException.Message}");
+                }
+                else
+                {
+                    Console.WriteLine($"[LoadTemplates] Error: {ex.Message}");
+                }
+                Console.WriteLine("Please ensure XAMPP/WAMP is running and the URL is correct.");
+            }
+        }
+    }
+
+
     public static void ShutdownSDK()
     {
         Console.WriteLine("[ShutdownSDK] Server is stopping. Releasing all SDK resources...");
-        // Close Device
+        isVerifying = false;
+        isEnrolling = false;
+
         if (zkTecoDeviceHandle != IntPtr.Zero)
         {
-            Console.WriteLine("[ShutdownSDK] Closing device...");
             int retClose = zkfp2.CloseDevice(zkTecoDeviceHandle);
-            Console.WriteLine($"[ShutdownSDK] Device close result: {GetErrorMsg(retClose)} (Code: {retClose})");
+            Console.WriteLine($"[ShutdownSDK] Device close result: {GetErrorMsg(retClose)}");
             zkTecoDeviceHandle = IntPtr.Zero;
         }
 
-        // Free the DB Handle
         if (mDBHandle != IntPtr.Zero)
         {
-            Console.WriteLine("[ShutdownSDK] Freeing DB Cache...");
             int retDbFree = zkfp2.DBFree(mDBHandle);
-            Console.WriteLine($"[ShutdownSDK] DB Cache free result: {GetErrorMsg(retDbFree)} (Code: {retDbFree})");
+            Console.WriteLine($"[ShutdownSDK] DB Cache free result: {GetErrorMsg(retDbFree)}");
             mDBHandle = IntPtr.Zero;
         }
 
-        // Terminate SDK
         if (sdkInitialized)
         {
-            Console.WriteLine("[ShutdownSDK] Terminating SDK...");
             int retTerminate = zkfp2.Terminate();
-            Console.WriteLine($"[ShutdownSDK] SDK termination result: {GetErrorMsg(retTerminate)} (Code: {retTerminate})");
+            Console.WriteLine($"[ShutdownSDK] SDK termination result: {GetErrorMsg(retTerminate)}");
             sdkInitialized = false;
         }
         Console.WriteLine("[ShutdownSDK] Cleanup complete.");
     }
 
-
     protected override void OnOpen()
     {
         Console.WriteLine("[OnOpen] Web page client connected.");
-        // Send status on connect
         Send(JsonConvert.SerializeObject(new
         {
             status = "info",
@@ -134,15 +206,16 @@ public class FingerprintService : WebSocketBehavior
 
     protected override void OnClose(CloseEventArgs e)
     {
-        // NOTE: We NO LONGER shut down the SDK here.
-        // The SDK is static and stays running for all other users.
-        // It will be shut down by Program.Main when the server stops.
         Console.WriteLine("[OnClose] Web page client disconnected.");
+        if (isVerifying)
+        {
+            Console.WriteLine("[OnClose] Client was in verification mode. Stopping verification.");
+            isVerifying = false;
+        }
     }
 
     /// <summary>
-    /// Main message handler. This must be FAST.
-    /// It just receives a command and (if needed) starts a background task.
+    /// Main message handler. Now handles verification commands.
     /// </summary>
     protected override void OnMessage(MessageEventArgs e)
     {
@@ -169,55 +242,113 @@ public class FingerprintService : WebSocketBehavior
                 message = "Status check.",
                 sdk = sdkInitialized,
                 device = deviceConnected,
-                enrolling = isEnrolling
+                enrolling = isEnrolling,
+                verifying = isVerifying
             }));
         }
         else if (command == "enroll_start")
         {
             Console.WriteLine("[OnMessage] 'enroll_start' command received.");
-
-            // Check if an enrollment is already running
+            if (isVerifying)
+            {
+                Console.WriteLine("[OnMessage] Error: Verification is in progress.");
+                Send(JsonConvert.SerializeObject(new { status = "error", message = "Cannot enroll while verification is active." }));
+                return;
+            }
             if (isEnrolling)
             {
                 Console.WriteLine("[OnMessage] Error: Enrollment already in progress.");
                 Send(JsonConvert.SerializeObject(new { status = "error", message = "Enrollment is already in progress." }));
                 return;
             }
-
-            // Check if device is ready
-            if (zkTecoDeviceHandle == IntPtr.Zero || mDBHandle == IntPtr.Zero || imgBuffer == null || !deviceConnected)
+            if (zkTecoDeviceHandle == IntPtr.Zero || mDBHandle == IntPtr.Zero || !deviceConnected)
             {
                 Console.WriteLine("[OnMessage] Error: Device or DB Cache not ready.");
-                Send(JsonConvert.SerializeObject(new { status = "error", message = "Device/SDK not fully ready. Try reconnecting scanner." }));
+                Send(JsonConvert.SerializeObject(new { status = "error", message = "Device/SDK not fully ready." }));
                 return;
             }
 
-            // *** THE FIX ***
-            // Start the enrollment process on a NEW thread.
-            // This lets OnMessage exit immediately, keeping the WebSocket responsive.
-            Task.Run(() => StartEnrollmentProcess());
-            Console.WriteLine("[OnMessage] Handed off to background task. OnMessage is complete.");
+            // --- *** FIX: Replaced Task.Run with new Thread *** ---
+            // Pass 'this' (the service instance) to the thread
+            new Thread(() => StartEnrollmentProcess(this)).Start();
+            Console.WriteLine("[OnMessage] Handed off enrollment to background thread.");
         }
-        // You can add a 'enroll_cancel' command here
-        // else if (command == "enroll_cancel")
-        // {
-        //     // Will need a CancellationTokenSource to properly cancel
-        //     Console.WriteLine("[OnMessage] Cancel command received (not yet implemented).");
-        // }
+        else if (command == "verify_start")
+        {
+            Console.WriteLine("[OnMessage] 'verify_start' command received.");
+            if (isEnrolling)
+            {
+                Console.WriteLine("[OnMessage] Error: Enrollment is in progress.");
+                Send(JsonConvert.SerializeObject(new { status = "error", message = "Cannot verify while enrollment is active." }));
+                return;
+            }
+            if (isVerifying)
+            {
+                Console.WriteLine("[OnMessage] Warning: Verification already in progress.");
+                Send(JsonConvert.SerializeObject(new { status = "info", message = "Verification is already active." }));
+                return;
+            }
+            if (zkTecoDeviceHandle == IntPtr.Zero || mDBHandle == IntPtr.Zero || !deviceConnected)
+            {
+                Console.WriteLine("[OnMessage] Error: Device or DB Cache not ready.");
+                Send(JsonConvert.SerializeObject(new { status = "error", message = "Device/SDK not fully ready." }));
+                return;
+            }
+
+            // --- *** FIX: Replaced Task.Run with new Thread *** ---
+            // Pass 'this' (the service instance) to the thread
+            new Thread(() => StartVerificationProcess(this)).Start();
+            Console.WriteLine("[OnMessage] Handed off verification to background thread.");
+        }
+        else if (command == "verify_stop")
+        {
+            Console.WriteLine("[OnMessage] 'verify_stop' command received.");
+            if (isVerifying)
+            {
+                isVerifying = false;
+                Console.WriteLine("[OnMessage] Verification stopped by user command.");
+                Send(JsonConvert.SerializeObject(new { status = "info", message = "Verification stopped." }));
+            }
+            else
+            {
+                Send(JsonConvert.SerializeObject(new { status = "info", message = "Verification was not running." }));
+            }
+        }
     }
 
     /// <summary>
-    /// This is the long-running process, now on a background thread.
-    /// It can send messages back to the client using the 'Send()' method.
+    /// Helper method to send a message from a background thread.
+    /// We need this because 'Send' belongs to the WebSocketBehavior instance.
     /// </summary>
-    private void StartEnrollmentProcess()
+    private void SendFromThread(string jsonMessage)
+    {
+        if (this.Context.WebSocket.ReadyState == WebSocketState.Open)
+        {
+            Send(jsonMessage);
+        }
+    }
+
+    /// <summary>
+    /// Helper method to broadcast a message from a background thread.
+    /// We need this because 'Sessions' belongs to the WebSocketBehavior instance.
+    /// </summary>
+    private void BroadcastFromThread(string jsonMessage)
+    {
+        Sessions.Broadcast(jsonMessage);
+    }
+
+
+    /// <summary>
+    /// Long-running enrollment task.
+    /// NOW accepts a 'service' parameter to send messages.
+    /// </summary>
+    private void StartEnrollmentProcess(FingerprintService service)
     {
         try
         {
-            isEnrolling = true; // Set the busy flag
-            Console.WriteLine("[Task] Enrollment task started...");
+            isEnrolling = true;
+            Console.WriteLine("[Task-Enroll] Enrollment task started...");
 
-            // --- ALL YOUR ORIGINAL ENROLLMENT LOGIC IS HERE ---
             List<byte[]> capturedTemplates = new List<byte[]>();
             const int requiredScans = 3;
             int currentScan = 1;
@@ -225,35 +356,33 @@ public class FingerprintService : WebSocketBehavior
 
             while (capturedTemplates.Count < requiredScans && !enrollAbort)
             {
-                Console.WriteLine($"[Task] Starting capture attempt for scan #{currentScan}...");
-                // Send progress update TO THE CLIENT
-                Send(JsonConvert.SerializeObject(new { status = "progress", step = currentScan, message = $"Place finger for scan {currentScan} of {requiredScans}..." }));
+                Console.WriteLine($"[Task-Enroll] Starting capture attempt for scan #{currentScan}...");
+                service.SendFromThread(JsonConvert.SerializeObject(new { status = "progress", step = currentScan, message = $"Place finger for scan {currentScan} of {requiredScans}..." }));
 
                 byte[] tempTemplate = new byte[2048];
                 int tempSize = 2048;
                 bool scanOk = false;
                 int retryCount = 0;
-                const int maxRetriesPerScan = 50; // Timeout per scan (~10 sec)
+                const int maxRetriesPerScan = 50;
 
-                // Loop for a single scan attempt
-                while (!scanOk && retryCount < maxRetriesPerScan && isEnrolling) // Check 'isEnrolling' for cancellation
+                while (!scanOk && retryCount < maxRetriesPerScan && isEnrolling)
                 {
-                    tempSize = 2048; // Reset size
+                    tempSize = 2048;
                     int ret = zkfp2.AcquireFingerprint(zkTecoDeviceHandle, imgBuffer, tempTemplate, ref tempSize);
 
-                    if (ret == 0 && tempSize > 0) // Successful capture
+                    if (ret == 0 && tempSize > 0)
                     {
-                        Console.WriteLine($"[Task] Capture attempt {retryCount + 1} for scan #{currentScan} successful. Size: {tempSize}");
+                        Console.WriteLine($"[Task-Enroll] Capture {retryCount + 1} for scan #{currentScan} successful. Size: {tempSize}");
 
                         if (capturedTemplates.Count > 0)
                         {
                             int matchScore = zkfp2.DBMatch(mDBHandle, tempTemplate, capturedTemplates[0]);
-                            Console.WriteLine($"[Task] Comparing scan #{currentScan} to scan #1. Score: {matchScore}");
+                            Console.WriteLine($"[Task-Enroll] Comparing scan #{currentScan} to scan #1. Score: {matchScore}");
 
-                            if (matchScore < 50) // Assuming a threshold of 50
+                            if (matchScore < 50)
                             {
-                                Console.WriteLine("[Task] Error: Finger does not match previous scans. Aborting enrollment.");
-                                Send(JsonConvert.SerializeObject(new { status = "error", message = "Finger mismatch. Please use the same finger for all scans." }));
+                                Console.WriteLine("[Task-Enroll] Error: Finger mismatch.");
+                                service.SendFromThread(JsonConvert.SerializeObject(new { status = "error", message = "Finger mismatch. Please use the same finger." }));
                                 enrollAbort = true;
                                 break;
                             }
@@ -264,17 +393,13 @@ public class FingerprintService : WebSocketBehavior
                         capturedTemplates.Add(validTemplate);
                         scanOk = true;
 
-                        Send(JsonConvert.SerializeObject(new { status = "progress", step = currentScan, message = $"Scan {currentScan} of {requiredScans} captured." }));
+                        service.SendFromThread(JsonConvert.SerializeObject(new { status = "progress", step = currentScan, message = $"Scan {currentScan} of {requiredScans} captured." }));
                     }
-                    else if (ret == -8) // No finger / bad capture
+                    else if (ret == -8) { /* No finger, keep polling */ }
+                    else
                     {
-                        // Console.WriteLine($"[Task] Retry {retryCount + 1}: No finger/Bad capture (Code: {ret}). Waiting...");
-                        // This state is normal, just keep polling
-                    }
-                    else // Other SDK error
-                    {
-                        Console.WriteLine($"[Task] Capture attempt failed. Error: {GetErrorMsg(ret)} (Code: {ret})");
-                        Send(JsonConvert.SerializeObject(new { status = "error", message = $"Scan {currentScan} failed ({GetErrorMsg(ret)}). Please try again." }));
+                        Console.WriteLine($"[Task-Enroll] Capture failed. Error: {GetErrorMsg(ret)}");
+                        service.SendFromThread(JsonConvert.SerializeObject(new { status = "error", message = $"Scan {currentScan} failed ({GetErrorMsg(ret)})." }));
                         enrollAbort = true;
                         break;
                     }
@@ -282,24 +407,22 @@ public class FingerprintService : WebSocketBehavior
                     retryCount++;
                     if (!scanOk && !enrollAbort)
                     {
-                        Thread.Sleep(200); // Wait between retries
+                        Thread.Sleep(200);
                     }
-                } // End inner while loop (single scan attempt)
+                }
 
                 if (!scanOk && !enrollAbort)
                 {
-                    Console.WriteLine($"[Task] Scan #{currentScan} timed out after {maxRetriesPerScan} retries.");
-                    Send(JsonConvert.SerializeObject(new { status = "error", message = $"Scan {currentScan} timed out. Please try again." }));
+                    Console.WriteLine($"[Task-Enroll] Scan #{currentScan} timed out.");
+                    service.SendFromThread(JsonConvert.SerializeObject(new { status = "error", message = $"Scan {currentScan} timed out." }));
                     enrollAbort = true;
                 }
+                currentScan++;
+            }
 
-                currentScan++; // Increment for next scan
-            } // End outer while loop (3 scans)
-
-            // --- Merge if all scans were successful ---
             if (capturedTemplates.Count == requiredScans && !enrollAbort)
             {
-                Console.WriteLine("[Task] All scans successful. Attempting to merge templates...");
+                Console.WriteLine("[Task-Enroll] Merging templates...");
                 byte[] mergedTemplate = new byte[2048];
                 int mergeSize = 2048;
                 int retMerge = zkfp2.DBMerge(mDBHandle, capturedTemplates[0], capturedTemplates[1], capturedTemplates[2], mergedTemplate, ref mergeSize);
@@ -307,48 +430,125 @@ public class FingerprintService : WebSocketBehavior
                 if (retMerge == 0 && mergeSize > 0)
                 {
                     string finalTemplateBase64 = Convert.ToBase64String(mergedTemplate, 0, mergeSize);
-                    Console.WriteLine("[Task] Templates merged successfully. Final Size: " + mergeSize);
-                    Send(JsonConvert.SerializeObject(new { status = "success", template = finalTemplateBase64, message = "Enrollment complete!" }));
+                    Console.WriteLine("[Task-Enroll] Merge complete. Size: " + mergeSize);
+                    service.SendFromThread(JsonConvert.SerializeObject(new { status = "success", template = finalTemplateBase64, message = "Enrollment complete!" }));
                 }
                 else
                 {
-                    Console.WriteLine($"[Task] Error: Failed to merge templates. Code: {GetErrorMsg(retMerge)} ({retMerge})");
-                    Send(JsonConvert.SerializeObject(new { status = "error", message = $"Failed to finalize enrollment ({GetErrorMsg(retMerge)}). Please try again." }));
+                    Console.WriteLine($"[Task-Enroll] Error: Failed to merge templates. {GetErrorMsg(retMerge)}");
+                    service.SendFromThread(JsonConvert.SerializeObject(new { status = "error", message = $"Failed to finalize enrollment ({GetErrorMsg(retMerge)})." }));
                 }
             }
             else if (!enrollAbort)
             {
-                Console.WriteLine("[Task] Error: Loop finished unexpectedly without enough templates.");
-                Send(JsonConvert.SerializeObject(new { status = "error", message = "Enrollment process incomplete. Please try again." }));
+                Console.WriteLine("[Task-Enroll] Error: Loop finished unexpectedly.");
+                service.SendFromThread(JsonConvert.SerializeObject(new { status = "error", message = "Enrollment incomplete." }));
             }
-            // If enrollAbort was true, error message was already sent.
-        }
-        catch (AccessViolationException avex)
-        {
-            Console.WriteLine($"[Task] CRITICAL ACCESS VIOLATION: {avex.Message}");
-            Console.WriteLine("This often means the SDK DLL is the wrong version (32/64 bit) or the device was unplugged.");
-            Send(JsonConvert.SerializeObject(new { status = "error", message = "Critical SDK Error (AccessViolation). Please restart bridge." }));
-            // This error is often fatal, the bridge app may need to be restarted.
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Task] CRITICAL ERROR in enrollment task: {ex.Message}");
+            Console.WriteLine($"[Task-Enroll] CRITICAL ERROR: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
-            Send(JsonConvert.SerializeObject(new { status = "error", message = "Internal task error: " + ex.Message }));
+            service.SendFromThread(JsonConvert.SerializeObject(new { status = "error", message = "Internal task error: " + ex.Message }));
         }
         finally
         {
-            // *** MOST IMPORTANT PART ***
-            // Ensure the flag is cleared, even if it fails,
-            // so the user can try again.
             isEnrolling = false;
-            Console.WriteLine("[Task] Enrollment task finished (or aborted). 'isEnrolling' flag reset.");
+            Console.WriteLine("[Task-Enroll] Enrollment task finished. 'isEnrolling' flag reset.");
         }
     }
 
 
     /// <summary>
-    /// Helper function to get a human-readable error message from the SDK's error code.
+    /// Long-running verification task.
+    /// NOW accepts a 'service' parameter to broadcast messages.
+    /// </summary>
+    private void StartVerificationProcess(FingerprintService service)
+    {
+        try
+        {
+            isVerifying = true;
+            Console.WriteLine("[Task-Verify] Verification task started...");
+
+            service.BroadcastFromThread(JsonConvert.SerializeObject(new { status = "info", message = "Verification active. Waiting for finger..." }));
+
+            byte[] tempTemplate = new byte[2048];
+            int retries = 0;
+
+            while (isVerifying)
+            {
+                int tempSize = 2048;
+                int ret = zkfp2.AcquireFingerprint(zkTecoDeviceHandle, imgBuffer, tempTemplate, ref tempSize);
+
+                if (ret == 0 && tempSize > 0)
+                {
+                    Console.WriteLine("[Task-Verify] Finger acquired. Identifying...");
+                    int userID = 0;
+                    int matchScore = 0;
+
+                    int retIdentify = zkfp2.DBIdentify(mDBHandle, tempTemplate, ref userID, ref matchScore);
+
+                    if (retIdentify == 0)
+                    {
+                        Console.WriteLine($"[Task-Verify] VERIFICATION SUCCESS. UserID: {userID}, Score: {matchScore}");
+
+                        service.BroadcastFromThread(JsonConvert.SerializeObject(new
+                        {
+                            type = "verification_success",
+                            user_id = userID
+                        }));
+
+                        retries = 0;
+                        Thread.Sleep(2000); // Prevent double-scans
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[Task-Verify] VERIFICATION FAILED. No match found (Code: {retIdentify})");
+                        service.BroadcastFromThread(JsonConvert.SerializeObject(new
+                        {
+                            type = "verification_fail",
+                            message = "Finger not recognized."
+                        }));
+
+                        Thread.Sleep(1500);
+                    }
+                }
+                else if (ret == -8)
+                {
+                    retries = 0; // Normal state, reset retries
+                }
+                else
+                {
+                    retries++;
+                    Console.WriteLine($"[Task-Verify] SDK Error (Code: {ret}, Retries: {retries}).");
+                    if (retries > 5)
+                    {
+                        Console.WriteLine("[Task-Verify] Too many consecutive errors. Stopping verification.");
+                        service.BroadcastFromThread(JsonConvert.SerializeObject(new { status = "error", message = $"Scanner error ({GetErrorMsg(ret)})." }));
+                        isVerifying = false;
+                    }
+                }
+
+                Thread.Sleep(100);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Task-Verify] CRITICAL ERROR: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+            service.BroadcastFromThread(JsonConvert.SerializeObject(new { status = "error", message = "Internal verification task error: " + ex.Message }));
+        }
+        finally
+        {
+            isVerifying = false;
+            Console.WriteLine("[Task-Verify] Verification task stopped. 'isVerifying' flag reset.");
+            service.BroadcastFromThread(JsonConvert.SerializeObject(new { status = "info", message = "Verification stopped." }));
+        }
+    }
+
+
+    /// <summary>
+    /// Helper function for error codes. (Unchanged)
     /// </summary>
     private static string GetErrorMsg(int errCode)
     {
@@ -374,11 +574,11 @@ public class FingerprintService : WebSocketBehavior
             default: return $"Unknown error code {errCode}";
         }
     }
-} // End FingerprintService class
+}
 
 
 /// <summary>
-/// Main Program class. Starts the WebSocket server.
+/// Main Program class. (Unchanged)
 /// </summary>
 public class Program
 {
@@ -386,14 +586,13 @@ public class Program
     {
         Console.WriteLine("--- ZKTecoBridge Starting ---");
         WebSocketServer wssv = null;
-        string url = "ws://127.0.0.1:8080"; // Listen on localhost only
+        string url = "ws://127.0.0.1:8080";
 
         try
         {
             Console.WriteLine($"Creating WebSocketServer on {url} ...");
             wssv = new WebSocketServer(url);
 
-            // Using AddWebSocketService with a lambda initializes the static constructor
             Console.WriteLine("Adding WebSocket Service ('/')...");
             wssv.AddWebSocketService<FingerprintService>("/");
 
@@ -403,29 +602,25 @@ public class Program
             if (wssv.IsListening)
             {
                 Console.WriteLine("======================================================");
-                Console.WriteLine(" ZKTeco Fingerprint Bridge Service (Using zkfp2 Class)");
+                Console.WriteLine(" ZKTeco Fingerprint Bridge Service");
                 Console.WriteLine("======================================================");
                 Console.WriteLine($" Listening on: {url}");
                 Console.WriteLine(" Waiting for web page connection...");
-                Console.WriteLine(" Ensure SDK DLLs are in the same folder as this .exe");
                 Console.WriteLine("======================================================");
                 Console.WriteLine(" Press [Enter] key to stop the server.");
-                Console.ReadLine(); // Wait for Enter
+                Console.ReadLine();
             }
             else
             {
                 Console.WriteLine("!!! Error: WebSocket Server failed to start. !!!");
-                Console.WriteLine("Press Enter to exit.");
-                Console.ReadLine(); // Pause on error
+                Console.ReadLine();
             }
-
         }
         catch (Exception ex)
         {
             Console.WriteLine("!!!!! UNHANDLED EXCEPTION DURING STARTUP !!!!!");
             Console.WriteLine(ex.ToString());
-            Console.WriteLine("Press Enter to exit.");
-            Console.ReadLine(); // Pause on error
+            Console.ReadLine();
         }
         finally
         {
@@ -435,12 +630,11 @@ public class Program
                 wssv.Stop();
             }
 
-            // *** NEW CLEANUP STEP ***
-            // Call the static shutdown method to release the SDK resources
+            // Call static shutdown method
             FingerprintService.ShutdownSDK();
 
             Console.WriteLine("Server stopped. Press Enter to exit.");
-            Console.ReadLine(); // Add a final pause
+            Console.ReadLine();
         }
     }
 }
