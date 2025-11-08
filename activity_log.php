@@ -1,21 +1,18 @@
 <?php
 require_once 'config.php';
 requireAdmin(); 
-
 $db = db();
 
-
+/*sets the limit of the activities shown in the activities log*/
 $activityLogs = [];
 
-$limit = 25; 
+$limit = 10; 
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1; 
 $offset = ($page - 1) * $limit;
-
 
 $totalResult = $db->query("SELECT COUNT(*) as total FROM activity_logs");
 $totalLogs = $totalResult ? $totalResult->fetch_assoc()['total'] : 0;
 $totalPages = ceil($totalLogs / $limit);
-
 
 $logQuery = "
     SELECT al.*, u.first_name, u.last_name 
@@ -32,7 +29,6 @@ $logResult = $stmt->get_result();
 if ($logResult) {
     $activityLogs = $logResult->fetch_all(MYSQLI_ASSOC);
 }
-
 
 $pageTitle = 'Activity Log';
 $pageSubtitle = 'View all system and user activities';

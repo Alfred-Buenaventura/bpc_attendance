@@ -98,7 +98,7 @@ include 'includes/header.php';
                     </div>
                     <div>
                         <p style="font-size: 12px; color: var(--gray-600); margin-bottom: 4px;">Release Date</p>
-                        <p style="font-weight: 600;">January 2025</p>
+                        <p style="font-weight: 600;">November 2025</p>
                     </div>
                     <div>
                         <p style="font-size: 12px; color: var(--gray-600); margin-bottom: 4px;">Institution</p>
