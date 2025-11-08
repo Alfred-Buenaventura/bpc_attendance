@@ -1,42 +1,38 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- Sidebar Toggle Logic ---
+    /*toggle loginc for the sidebar*/
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebarToggle');
     const mainContent = document.getElementById('mainContent');
     const dashboardContainer = document.getElementById('dashboardContainer');
 
     if (sidebarToggle && sidebar && dashboardContainer) {
-        // Function to set sidebar state
+        /*state of the sidebar, for example if its collapsed or not*/
         const setSidebarState = (isCollapsed) => {
             sidebar.classList.toggle('collapsed', isCollapsed);
             dashboardContainer.classList.toggle('sidebar-collapsed', isCollapsed);
             localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
         };
 
-        // Check local storage for saved state
         const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
         setSidebarState(isCollapsed);
 
-        // Add click event
         sidebarToggle.addEventListener('click', () => {
             const wasCollapsed = sidebar.classList.contains('collapsed');
             setSidebarState(!wasCollapsed);
         });
     }
-
-    // --- User Settings Menu Toggle Logic ---
+    /*toggle for the user settings menu*/
     const userSettingsBtn = document.getElementById('userSettingsBtn');
     const settingsMenu = document.getElementById('settings-menu');
 
     if (userSettingsBtn && settingsMenu) {
         userSettingsBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent click from closing menu immediately
+            e.stopPropagation();
             settingsMenu.classList.toggle('active');
         });
     }
-
-    // Close settings menu if clicking outside
+    /*event for settings menu to close if you click outside of the area*/
     document.addEventListener('click', (e) => {
         if (settingsMenu && settingsMenu.classList.contains('active') && 
             !settingsMenu.contains(e.target) && !userSettingsBtn.contains(e.target)) {
@@ -44,8 +40,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- Logout Modal Logic ---
-    // Note: The global openModal/closeModal functions are now in header.php
     window.showLogoutConfirm = function() {
         if (typeof openModal === 'function') {
             openModal('logoutConfirmModal');
@@ -54,10 +48,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- Live Time and Date Logic ---
+    /*date and time display*/
     const liveTimeEl = document.getElementById('live-time');
     const liveDateEl = document.getElementById('live-date');
-
     function updateTime() {
         if (liveTimeEl && liveDateEl) {
             const now = new Date();
@@ -65,10 +58,10 @@ document.addEventListener('DOMContentLoaded', function() {
             liveDateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
         }
     }
-    updateTime(); // Run once immediately
-    setInterval(updateTime, 1000 * 30); // Update every 30 seconds
+    updateTime();
+    setInterval(updateTime, 1000 * 30);
 
-    // --- Scanner Status WebSocket Logic (for Admin Dashboard) ---
+    /*Connection display in the dashboard, detects if scanner is connected or not*/
     const scannerStatusWidget = document.getElementById('scanner-status-widget');
     
     if (scannerStatusWidget) {
@@ -95,10 +88,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
 
+        /*ZKTeco fingerprint scanner device connection and websocket logic,
+        this block detects the connection status to an external bridge app to function.*/
         function connectScannerSocket() {
             try {
                 const socket = new WebSocket("ws://127.0.0.1:8080");
-
                 socket.onopen = () => {
                     console.log("Scanner WebSocket connected.");
                     setScannerStatus(true, "Device Connected");
@@ -107,14 +101,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 socket.onclose = () => {
                     console.log("Scanner WebSocket disconnected.");
                     setScannerStatus(false, "Device Not Detected");
-                    // Try to reconnect after 5 seconds
                     setTimeout(connectScannerSocket, 5000);
                 };
 
                 socket.onerror = (err) => {
                     console.error("Scanner WebSocket error:", err);
                     setScannerStatus(false, "Connection Error");
-                    socket.close(); // Triggers onclose and reconnect
+                    socket.close();
                 };
 
             } catch (err) {
@@ -126,9 +119,4 @@ document.addEventListener('DOMContentLoaded', function() {
         
         connectScannerSocket();
     }
-
 });
-
-// --- REMOVED ---
-// The old openModal() and closeModal() functions were here.
-// They are now correctly defined in includes/header.php to prevent conflicts.
