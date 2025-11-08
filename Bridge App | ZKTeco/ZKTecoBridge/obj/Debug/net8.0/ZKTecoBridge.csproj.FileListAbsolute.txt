@@ -1,11 +1,11 @@
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.exe
-C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.deps.json
-C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.runtimeconfig.json
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.dll
-C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.pdb
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\Newtonsoft.Json.dll
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\websocket-sharp.dll
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\libzkfpcsharp.dll
+C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.deps.json
+C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.runtimeconfig.json
+C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\bin\Debug\net8.0\ZKTecoBridge.pdb
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\obj\Debug\net8.0\ZKTecoBridge.csproj.AssemblyReference.cache
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\obj\Debug\net8.0\ZKTecoBridge.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\Bacardi\source\repos\ZKTecoBridge\ZKTecoBridge\obj\Debug\net8.0\ZKTecoBridge.AssemblyInfoInputs.cache
