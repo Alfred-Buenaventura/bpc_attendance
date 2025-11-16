@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 <i class="fa-solid fa-fingerprint"></i>
             </div>
             <h2 class="login-title">BPC Attendance System</h2>
-            <p class="login-subtitle">Fingerprint-based Attendance & Gate Entry Monitoring</p>
+            <p class="login-subtitle">Biometric Attendance Monitoring</p>
         </div>
 
         <div class="login-new-body">

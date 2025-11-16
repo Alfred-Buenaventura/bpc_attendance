@@ -5,12 +5,13 @@ requireLogin();
 $db = db();
 $error = '';
 
-// --- 1. GET PARAMETERS ---
+// --- 1. get parameters ---
 $userId = $_GET['user_id'] ?? 0;
 $startDate = $_GET['start_date'] ?? date('Y-m-01');
 $endDate = $_GET['end_date'] ?? date('Y-m-t');
+$isPreview = isset($_GET['preview']); // check if we are in preview mode
 
-// --- 2. SECURITY CHECK ---
+// --- 2. security check ---
 if (!isAdmin()) {
     if ($userId != $_SESSION['user_id']) {
         die('Access Denied. You can only print your own DTR.');
@@ -20,7 +21,7 @@ if (empty($userId)) {
     die('No user selected.');
 }
 
-// --- 3. FETCH USER DATA ---
+// --- 3. fetch user data ---
 $userStmt = $db->prepare("SELECT faculty_id, first_name, last_name, middle_name FROM users WHERE id = ?");
 $userStmt->bind_param("i", $userId);
 $userStmt->execute();
@@ -34,7 +35,7 @@ $middleInitial = !empty($user['middle_name']) ? ' ' . strtoupper(substr($user['m
 $fullName = strtoupper($user['last_name'] . ', ' . $user['first_name'] . $middleInitial);
 $facultyId = $user['faculty_id'];
 
-// --- 4. PREPARE DTR DATES ---
+// --- 4. prepare dtr dates ---
 try {
     $start = new DateTime($startDate);
     $end = new DateTime($endDate);
@@ -51,20 +52,20 @@ if ($start->format('Y-m') != $end->format('Y-m')) {
     $monthName = $start->format('F Y') . ' - ' . $end->format('F Y');
 }
 
-// --- 5. FETCH REAL-TIME ATTENDANCE DATA ---
+// --- 5. fetch real-time attendance data ---
 $recordsStmt = $db->prepare("SELECT date, time_in, time_out, working_hours FROM attendance_records WHERE user_id = ? AND date BETWEEN ? AND ?");
 $recordsStmt->bind_param("iss", $userId, $startDate, $endDate);
 $recordsStmt->execute();
 $dbRecords = $recordsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Process real-time records into a day-keyed array for easy lookup
+// process real-time records into a day-keyed array for easy lookup
 $realTimeRecords = [];
 foreach ($dbRecords as $rec) {
     $dayOfMonth = (int)(new DateTime($rec['date']))->format('j');
     $realTimeRecords[$dayOfMonth] = $rec;
 }
 
-// --- 6. FETCH SCHEDULE-BASED DATA ---
+// --- 6. fetch schedule-based data ---
 $scheduleStmt = $db->prepare("
     SELECT day_of_week, MIN(start_time) AS first_in, MAX(end_time) AS last_out
     FROM class_schedules
@@ -75,7 +76,7 @@ $scheduleStmt->bind_param("i", $userId);
 $scheduleStmt->execute();
 $dbSchedules = $scheduleStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Process scheduled records into a day-of-week-keyed array
+// process scheduled records into a day-of-week-keyed array
 $scheduledRecords = [];
 foreach ($dbSchedules as $sched) {
     $scheduledRecords[$sched['day_of_week']] = $sched;
@@ -90,9 +91,11 @@ foreach ($dbSchedules as $sched) {
     <title>DTR - <?= htmlspecialchars($fullName) ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/display.css">
 </head>
 <body class="dtr-body"> 
     
+    <?php if (!$isPreview): ?>
     <div class="print-controls">
         <button class="btn btn-primary" onclick="window.print()">
             <i class="fa-solid fa-print"></i>
@@ -103,7 +106,7 @@ foreach ($dbSchedules as $sched) {
             Back
         </button>
     </div>
-
+    <?php endif; ?>
     <div class="dtr-container-wrapper">
 
         <?php for ($i = 0; $i < 2; $i++): // Loop to print two copies on one page ?>
@@ -151,125 +154,123 @@ foreach ($dbSchedules as $sched) {
                 </thead>
                 <tbody>
                     <?php
-                    // --- 7. DYNAMICALLY RENDER TABLE ROWS WITH HYBRID LOGIC ---
+                    // --- 7. dynamically render table rows with hybrid logic ---
                     $totalHours = 0;
-$totalMinutes = 0;
+                    $totalMinutes = 0;
 
-// --- NEW: Determine cutoff date dynamically ---
-$cutoffDate = '2023-11-15'; // Change this to the actual date where you switched systems
-$startDateTime = new DateTime($startDate);
-$endDateTime = new DateTime($endDate);
-$cutoffDateTime = new DateTime($cutoffDate);
+                    $cutoffDate = '2023-11-15'; // Change this to the actual date where you switched systems
+                    $startDateTime = new DateTime($startDate);
+                    $endDateTime = new DateTime($endDate);
+                    $cutoffDateTime = new DateTime($cutoffDate);
 
-for ($day = 1; $day <= 31; $day++):
-    $am_in = '';
-    $am_out = '';
-    $pm_in = '';
-    $pm_out = '';
-    $day_hours = '';
-    $day_minutes = '';
-    
-    $isScheduledDay = false;
+                    for ($day = 1; $day <= 31; $day++):
+                        $am_in = '';
+                        $am_out = '';
+                        $pm_in = '';
+                        $pm_out = '';
+                        $day_hours = '';
+                        $day_minutes = '';
+                        
+                        $isScheduledDay = false;
 
-    // Skip days beyond the month
-    if ($day > $daysInMonth) {
-        $am_in = '<div class="dtr-day-disabled">-</div>';
-        $am_out = '<div class="dtr-day-disabled">-</div>';
-        $pm_in = '<div class="dtr-day-disabled">-</div>';
-        $pm_out = '<div class="dtr-day-disabled">-</div>';
-    } else {
-        // Construct the current date being processed
-        $currentDate = "$year-$monthNum-" . str_pad($day, 2, '0', STR_PAD_LEFT);
-        $currentDateTime = new DateTime($currentDate);
-        
-        // --- DETERMINE WHICH LOGIC TO USE BASED ON ACTUAL DATE ---
-        if ($currentDateTime <= $cutoffDateTime) {
-            // --- USE REAL-TIME LOGIC (for dates ON or BEFORE cutoff) ---
-            if (isset($realTimeRecords[$day])) {
-                $rec = $realTimeRecords[$day];
-                if ($rec['time_in']) {
-                    $time_in_obj = strtotime($rec['time_in']);
-                    if ($time_in_obj < strtotime('12:00:00')) {
-                        $am_in = date('g:i', $time_in_obj);
-                    } else {
-                        $pm_in = date('g:i', $time_in_obj);
-                    }
-                }
-                if ($rec['time_out']) {
-                    $time_out_obj = strtotime($rec['time_out']);
-                    if ($time_out_obj > strtotime('13:00:00')) {
-                        $pm_out = date('g:i', $time_out_obj);
-                    } else {
-                        $am_out = date('g:i', $time_out_obj);
-                    }
-                }
-                if ($rec['working_hours']) {
-                    $wh = floatval($rec['working_hours']);
-                    $day_hours = floor($wh);
-                    $day_minutes = round(($wh - $day_hours) * 60);
-                    $totalHours += $day_hours;
-                    $totalMinutes += $day_minutes;
-                }
-            }
-        } else {
-            // --- USE SCHEDULE-BASED LOGIC (for dates AFTER cutoff) ---
-            $dayOfWeek = date('l', strtotime($currentDate));
-            
-            if (isset($scheduledRecords[$dayOfWeek])) {
-                $isScheduledDay = true;
-                $sched = $scheduledRecords[$dayOfWeek];
-                
-                $start_obj = strtotime($sched['first_in']);
-                $end_obj = strtotime($sched['last_out']);
+                        // Skip days beyond the month
+                        if ($day > $daysInMonth) {
+                            $am_in = '<div class="dtr-day-disabled">-</div>';
+                            $am_out = '<div class="dtr-day-disabled">-</div>';
+                            $pm_in = '<div class="dtr-day-disabled">-</div>';
+                            $pm_out = '<div class="dtr-day-disabled">-</div>';
+                        } else {
+                            $currentDate = "$year-$monthNum-" . str_pad($day, 2, '0', STR_PAD_LEFT);
+                            $currentDateTime = new DateTime($currentDate);
+                            
+                            // determine which logic to use based on actual date
+                            if ($currentDateTime <= $cutoffDateTime) {
+                                // use real-time logic (for dates on or before cutoff)
+                                if (isset($realTimeRecords[$day])) {
+                                    $rec = $realTimeRecords[$day];
+                                    if ($rec['time_in']) {
+                                        $time_in_obj = strtotime($rec['time_in']);
+                                        if ($time_in_obj < strtotime('12:00:00')) {
+                                            $am_in = date('g:i', $time_in_obj);
+                                        } else {
+                                            $pm_in = date('g:i', $time_in_obj);
+                                        }
+                                    }
+                                    if ($rec['time_out']) {
+                                        $time_out_obj = strtotime($rec['time_out']);
+                                        if ($time_out_obj > strtotime('13:00:00')) {
+                                            $pm_out = date('g:i', $time_out_obj);
+                                        } else {
+                                            $am_out = date('g:i', $time_out_obj);
+                                        }
+                                    }
+                                    if ($rec['working_hours']) {
+                                        $wh = floatval($rec['working_hours']);
+                                        $day_hours = floor($wh);
+                                        $day_minutes = round(($wh - $day_hours) * 60);
+                                        $totalHours += $day_hours;
+                                        $totalMinutes += $day_minutes;
+                                    }
+                                }
+                            } else {
+                                // use schedule-based logic (for dates after cutoff)
+                                $dayOfWeek = date('l', strtotime($currentDate));
+                                
+                                if (isset($scheduledRecords[$dayOfWeek])) {
+                                    $isScheduledDay = true;
+                                    $sched = $scheduledRecords[$dayOfWeek];
+                                    
+                                    $start_obj = strtotime($sched['first_in']);
+                                    $end_obj = strtotime($sched['last_out']);
 
-                if ($start_obj < strtotime('12:00:00')) {
-                    $am_in = date('g:i', $start_obj);
-                } else {
-                    $pm_in = date('g:i', $start_obj);
-                }
-                
-                if ($end_obj > strtotime('13:00:00')) {
-                    $pm_out = date('g:i', $end_obj);
-                } else {
-                    $am_out = date('g:i', $end_obj);
-                }
+                                    if ($start_obj < strtotime('12:00:00')) {
+                                        $am_in = date('g:i', $start_obj);
+                                    } else {
+                                        $pm_in = date('g:i', $start_obj);
+                                    }
+                                    
+                                    if ($end_obj > strtotime('13:00:00')) {
+                                        $pm_out = date('g:i', $end_obj);
+                                    } else {
+                                        $am_out = date('g:i', $end_obj);
+                                    }
 
-                // Calculate scheduled hours (minus lunch if needed)
-                $hours = ($end_obj - $start_obj) / 3600;
-                if ($start_obj < strtotime('12:00:00') && $end_obj > strtotime('13:00:00')) {
-                    $hours -= 1; // Subtract 1-hour lunch break
-                }
-                
-                $wh = max(0, $hours);
-                $day_hours = floor($wh);
-                $day_minutes = round(($wh - $day_hours) * 60);
-                $totalHours += $day_hours;
-                $totalMinutes += $day_minutes;
-            }
-        }
-    }
-?>
-<tr>
-    <td><?= $day ?></td>
-    <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $am_in ?></td>
-    <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $am_out ?></td>
-    <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $pm_in ?></td>
-    <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $pm_out ?></td>
-    <td class="<?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $day_hours ?></td>
-    <td class="<?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $day_minutes ?></td>
-</tr>
-<?php endfor; ?>
+                                    // calculate scheduled hours (minus lunch if needed)
+                                    $hours = ($end_obj - $start_obj) / 3600;
+                                    if ($start_obj < strtotime('12:00:00') && $end_obj > strtotime('13:00:00')) {
+                                        $hours -= 1; // Subtract 1-hour lunch break
+                                    }
+                                    
+                                    $wh = max(0, $hours);
+                                    $day_hours = floor($wh);
+                                    $day_minutes = round(($wh - $day_hours) * 60);
+                                    $totalHours += $day_hours;
+                                    $totalMinutes += $day_minutes;
+                                }
+                            }
+                        }
+                    ?>
+                    <tr>
+                        <td><?= $day ?></td>
+                        <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $am_in ?></td>
+                        <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $am_out ?></td>
+                        <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $pm_in ?></td>
+                        <td class="time-val <?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $pm_out ?></td>
+                        <td class="<?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $day_hours ?></td>
+                        <td class="<?= $isScheduledDay ? 'dtr-scheduled-time' : '' ?>"><?= $day_minutes ?></td>
+                    </tr>
+                    <?php endfor; ?>
 
-<?php
-// Calculate final total hours and minutes
-$totalHours += floor($totalMinutes / 60);
-$totalMinutes = $totalMinutes % 60;
-?>
-<tr class="total-row">
-    <td colspan="5">Total</td>
-    <td><?= $totalHours > 0 ? $totalHours : '' ?></td>
-    <td><?= $totalMinutes > 0 ? $totalMinutes : '' ?></td>
-</tr>
+                    <?php
+                    // calculate final total hours and minutes
+                    $totalHours += floor($totalMinutes / 60);
+                    $totalMinutes = $totalMinutes % 60;
+                    ?>
+                    <tr class="total-row">
+                        <td colspan="5">Total</td>
+                        <td><?= $totalHours > 0 ? $totalHours : '' ?></td>
+                        <td><?= $totalMinutes > 0 ? $totalMinutes : '' ?></td>
+                    </tr>
                 </tbody>
             </table>
 

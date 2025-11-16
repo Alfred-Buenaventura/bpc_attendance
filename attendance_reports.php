@@ -15,14 +15,15 @@ $filterStartDate = $_GET['start_date'] ?? $defaultStartDate;
 $filterEndDate = $_GET['end_date'] ?? date('Y-m-d');   
 $filterUserId = $_GET['user_id'] ?? ''; // Get selected User ID
 
+// check if we're an admin or a regular user
 if (isAdmin()) {
     $pageTitle = 'Attendance Reports';
     $pageSubtitle = 'View and manage all user attendance records';
     
-    // Fetch users for the dropdown
+    // fetch users for the dropdown
     $allUsers = $db->query("SELECT id, faculty_id, first_name, last_name FROM users WHERE status='active' AND role != 'Admin' ORDER BY first_name")->fetch_all(MYSQLI_ASSOC);
     
-    // Admin stats calculation
+    // admin stats calculation
     $today = date('Y-m-d');
     $entriesTodayResult = $db->query("SELECT COUNT(*) as c FROM attendance_records WHERE date = '$today' AND time_in IS NOT NULL");
     $entriesToday = $entriesTodayResult ? $entriesTodayResult->fetch_assoc()['c'] : 0;
@@ -34,9 +35,10 @@ if (isAdmin()) {
     $presentToday = $presentTodayResult ? $presentTodayResult->fetch_assoc()['c'] : 0;
 
 } else {
+    // or just show user-specific stuff
     $pageTitle = 'My Attendance';
     $pageSubtitle = 'View your personal attendance history';
-    // User stats calculation
+    // user stats calculation
     $today = date('Y-m-d');
     $stmtToday = $db->prepare("SELECT time_in, time_out FROM attendance_records WHERE date = ? AND user_id = ?");
     $stmtToday->bind_param("si", $today, $currentUserId);
@@ -50,7 +52,9 @@ if (isAdmin()) {
     $presentToday = $presentTodayResult ? $presentTodayResult->fetch_assoc()['c'] : 0;
 }
 
-/*Query for Table Data*/
+/* * building the main query for table data.
+ * we join with the users table to get names.
+ */
 $query = "
     SELECT ar.*, u.faculty_id, u.first_name, u.last_name, u.role
     FROM attendance_records ar
@@ -60,12 +64,13 @@ $query = "
 $params = [];
 $types = "";
 
+// for users to see only their own attendance reports
 if (!isAdmin()) {
-    /*For Users to see only their own attendance reports*/
     $query .= " AND ar.user_id = ?";
     $params[] = $currentUserId;
     $types .= "i";
 } elseif (!empty($filterSearch)) {
+    // admin search logic
     $searchTerm = "%" . $filterSearch . "%";
     $query .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.faculty_id LIKE ?)";
     $params[] = $searchTerm;
@@ -74,13 +79,14 @@ if (!isAdmin()) {
     $types .= "sss";
 }
 
-// Filter by user ID if admin selected one
+// filter by user id if admin selected one
 if (isAdmin() && !empty($filterUserId)) {
     $query .= " AND ar.user_id = ?";
     $params[] = $filterUserId;
     $types .= "i";
 }
 
+// handle the date range filters
 if ($filterStartDate && $filterEndDate) {
     $query .= " AND ar.date BETWEEN ? AND ?";
     $params[] = $filterStartDate;
@@ -94,6 +100,7 @@ if ($filterStartDate && $filterEndDate) {
 
 $query .= " ORDER BY ar.date DESC, ar.time_in ASC"; 
 
+// prepare and execute the database query
 $stmt = $db->prepare($query);
 if ($stmt) {
     if (!empty($types)) {
@@ -105,11 +112,6 @@ if ($stmt) {
     $error = "Database query error: " . $db->error;
     $records = [];
 }
-
-
-// ===================================================================
-// REMOVED: All temporary demo data has been removed.
-// ===================================================================
 
 
 $totalRecords = count($records);
@@ -167,14 +169,12 @@ include 'includes/header.php';
     </div>
 
     <?php if (isAdmin()): ?>
-    <!-- NEW: Added 'report-filter-card-admin' class -->
     <div class="filter-export-section card report-filter-card-admin">
         <div class="card-header">
             <h3><i class="fa-solid fa-filter"></i> Filter & Export</h3>
             <p>Filter and export attendance records for all users</p>
         </div>
         <div class="card-body">
-            <!-- The form action is changed to attendance_reports.php -->
             <form method="GET" action="attendance_reports.php" class="filter-controls-new">
                 <div class="filter-inputs">
                     <div class="form-group filter-item">
@@ -187,7 +187,6 @@ include 'includes/header.php';
                     <div class="form-group filter-item">
                         <label for="dateRangeStartFilter">Date Range</label>
                          <div style="display: flex; gap: 0.5rem;">
-                             <!-- NEW: Added 'report-date-input' class -->
                              <input type="date" id="dateRangeStartFilter" name="start_date" class="form-control report-date-input" value="<?= htmlspecialchars($filterStartDate) ?>">
                              <input type="date" id="dateRangeEndFilter" name="end_date" class="form-control report-date-input" value="<?= htmlspecialchars($filterEndDate) ?>">
                          </div>
@@ -207,20 +206,11 @@ include 'includes/header.php';
                     </div>
                 
                 <div class="filter-actions-new">
-                    <button type="submit" class="btn btn-primary apply-filter-btn">
+                    <button type="submit" class="btn btn-primary btn-sm apply-filter-btn">
                         <i class="fa-solid fa-check"></i> Apply Filters
                     </button>
-                    <!-- NEW: Updated href to be dynamic via JS -->
                     <a href="#"
-                        class="btn btn-primary download-btn"
-                        id="printDtrBtn"
-                        disabled 
-                        title="Please select a user from the dropdown to print DTR">
-                        <i class="fa-solid fa-download"></i> Download DTR PDF
-                    </a>
-                    <!-- NEW: Updated href to be dynamic via JS -->
-                    <a href="#"
-                        class="btn btn-danger export-csv-btn"
+                        class="btn btn-danger btn-sm export-csv-btn"
                         id="exportCsvBtn">
                         <i class="fa-solid fa-file-csv"></i> Export CSV
                     </a>
@@ -230,19 +220,17 @@ include 'includes/header.php';
     </div>
     
     <?php else: ?>
-    <!-- NEW: Added 'report-filter-card-user' class -->
     <div class="filter-export-section card report-filter-card-user">
         <div class="card-header">
             <h3><i class="fa-solid fa-filter"></i> Filter & Export</h3>
             <p>Filter your attendance records by date and export</p>
         </div>
         <div class="card-body">
-            <!-- The form action is changed to attendance_reports.php -->
+            <p class="user-creation-subtitle" style="margin-top: -1rem; margin-bottom: 1.5rem;">Select a date range to filter your records, then press "Apply". You can download a DTR for the selected range.</p>
             <form method="GET" action="attendance_reports.php" class="filter-controls-new">
                 <div class="filter-inputs" style="grid-template-columns: 1fr;"> <div class="form-group filter-item">
                         <label for="dateRangeStartFilter">Date Range</label>
                          <div style="display: flex; gap: 0.5rem;">
-                             <!-- NEW: Added 'report-date-input' class -->
                              <input type="date" id="dateRangeStartFilter" name="start_date" class="form-control report-date-input" value="<?= htmlspecialchars($filterStartDate) ?>">
                              <input type="date" id="dateRangeEndFilter" name="end_date" class="form-control report-date-input" value="<?= htmlspecialchars($filterEndDate) ?>">
                          </div>
@@ -250,18 +238,11 @@ include 'includes/header.php';
                 </div>
                 
                 <div class="filter-actions-new">
-                    <button type="submit" class="btn btn-primary apply-filter-btn">
+                    <button type="submit" class="btn btn-primary btn-sm apply-filter-btn">
                         <i class="fa-solid fa-check"></i> Apply Filters
                     </button>
-                    <!-- NEW: Updated href to be dynamic via JS -->
                     <a href="#"
-                        class="btn btn-primary download-btn"
-                        id="printDtrBtn">
-                        <i class="fa-solid fa-download"></i> Download DTR PDF
-                    </a>
-                    <!-- NEW: Updated href to be dynamic via JS -->
-                    <a href="#"
-                        class="btn btn-danger export-csv-btn"
+                        class="btn btn-danger btn-sm export-csv-btn"
                         id="exportCsvBtn">
                         <i class="fa-solid fa-file-csv"></i> Export CSV
                     </a>
@@ -283,6 +264,8 @@ include 'includes/header.php';
                             <?php if (isAdmin()): ?>
                                 <th>User</th>
                                 <th>Department</th>
+                            <?php else: ?>
+                                <th>Name</th>
                             <?php endif; ?>
                             <th>Date</th>
                             <th>Time In</th>
@@ -290,18 +273,42 @@ include 'includes/header.php';
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($records as $record): ?>
-                        <tr>
+                        <?php 
+                        // loop through all the attendance records
+                        foreach ($records as $record): 
+                        ?>
+                        
+                        <tr 
+                            <?php if (isAdmin()): ?>
+                                class="clickable-row"
+                                onclick="openDtrModal('print_dtr.php?user_id=<?= $record['user_id'] ?>&start_date=<?= htmlspecialchars($filterStartDate) ?>&end_date=<?= htmlspecialchars($filterEndDate) ?>&preview=1', '<?= htmlspecialchars($record['first_name'] . ' ' . $record['last_name']) ?>')"
+                                title="Click to preview DTR for <?= htmlspecialchars($record['first_name'] . ' ' . $record['last_name']) ?>"
+                            <?php elseif (!isAdmin()): ?>
+                                class="clickable-row"
+                                onclick="openDtrModal('print_dtr.php?user_id=<?= $currentUserId ?>&start_date=<?= htmlspecialchars($filterStartDate) ?>&end_date=<?= htmlspecialchars($filterEndDate) ?>&preview=1', '<?= htmlspecialchars($record['first_name'] . ' ' . $record['last_name']) ?>')"
+                                title="Click to preview your DTR"
+                            <?php endif; ?>
+                        >
                             <?php if (isAdmin()): ?>
                             <td>
                                 <div class="user-cell">
-                                    <span class="user-name"><?= htmlspecialchars($record['first_name'] . ' ' . $record['last_name']) ?></span>
+                                    <span class="user-name">
+                                        <?= htmlspecialchars($record['first_name'] . ' ' . $record['last_name']) ?>
+                                    </span>
                                     <span class="user-id"><?= htmlspecialchars($record['faculty_id']) ?></span>
                                 </div>
                             </td>
                             <td>
-                                <!-- NEW: Role is now dynamic -->
                                 <span class="department-cell"><?= htmlspecialchars($record['role']) ?></span> 
+                            </td>
+                            <?php else: ?>
+                            <td>
+                                <div class="user-cell">
+                                    <span class="user-name">
+                                        <?= htmlspecialchars($record['first_name'] . ' ' . $record['last_name']) ?>
+                                    </span>
+                                    <span class="user-id"><?= htmlspecialchars($record['faculty_id']) ?></span>
+                                </div>
                             </td>
                             <?php endif; ?>
                             
@@ -313,7 +320,6 @@ include 'includes/header.php';
                                     <div class="time-cell time-in">
                                         <i class="fa-solid fa-arrow-right-to-bracket"></i>
                                         <span><?= date('h:i A', strtotime($record['time_in'])) ?></span>
-                                        <!-- NEW: Added status-late class -->
                                         <span class="status-label <?= ($record['status'] == 'Late') ? 'status-late' : '' ?>">
                                             <?= htmlspecialchars($record['status']) ?>
                                         </span>
@@ -345,14 +351,55 @@ include 'includes/header.php';
             <?php endif; ?>
         </div>
     </div>
+
+    <div class="page-hint-card">
+        <div class="page-hint-icon">
+            <i class="fa-solid fa-lightbulb"></i>
+        </div>
+        <div class="page-hint-content">
+            <?php if (isAdmin()): ?>
+                <h4>How to Use This Page</h4>
+                <p>
+                    You can search for users, filter by date, or select a specific user from the dropdown. Click any user's row in the table to preview their DTR for the selected date range.
+                </p>
+            <?php else: ?>
+                <h4>How to Use This Page</h4>
+                <p>
+                    Use the date range filters and click "Apply" to see your history. Click any row in the table to preview your DTR for the selected date range.
+                </p>
+            <?php endif; ?>
+        </div>
+    </div>
+    
+</div> <div id="dtrPreviewModal" class="modal modal-dtr-preview">
+    <div class="modal-content">
+        <div class="modal-header" style="justify-content: space-between; display: flex; width: 100%;">
+            <div>
+                <h3 id="dtrModalTitle" style="color: var(--emerald-800);"><i class="fa-solid fa-file-invoice"></i> DTR Preview</h3>
+                <p id="dtrModalSubtitle" style="color: var(--gray-600); font-size: 0.9rem; margin-top: 4px;"></p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="printDtrFromModal()">
+                    <i class="fa-solid fa-print"></i> Print
+                </button>
+                <button type="button" class="modal-close" onclick="closeDtrModal()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <iframe id="dtrFrame" src="about:blank" frameborder="0"></iframe>
+        </div>
+    </div>
 </div>
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const printBtn = document.getElementById('printDtrBtn');
+    // const printBtn = document.getElementById('printDtrBtn'); // button is removed
     const exportBtn = document.getElementById('exportCsvBtn');
     
-    // Helper function to get filter values
+    // helper function to get all the filter values
     function getFilterValues() {
         const startDate = document.getElementById('dateRangeStartFilter').value;
         const endDate = document.getElementById('dateRangeEndFilter').value;
@@ -364,33 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return { startDate, endDate, searchVal, selectedUserId };
     }
 
-    function checkDtrButtonState() {
-        if (!printBtn) return; 
-
-        const filters = getFilterValues();
-        let href = `print_dtr.php?start_date=${filters.startDate}&end_date=${filters.endDate}`;
-        
-        <?php if (isAdmin()): ?>
-            href += `&search=${encodeURIComponent(filters.searchVal)}`;
-            href += `&user_id=${filters.selectedUserId}`;
-            
-            if (filters.selectedUserId) {
-                printBtn.removeAttribute('disabled');
-                printBtn.setAttribute('title', 'Download DTR for selected user');
-            } else {
-                printBtn.setAttribute('disabled', 'true');
-                printBtn.setAttribute('title', 'Please select a user to print DTR');
-            }
-        <?php else: ?>
-            // For non-admins, it's always enabled for themselves
-            href += `&user_id=<?= $currentUserId ?>`;
-            printBtn.removeAttribute('disabled');
-        <?php endif; ?>
-        
-        printBtn.setAttribute('href', href);
-    }
-
-    // NEW: Function to update the Export CSV button
+    // this function updates the 'export csv' button's link
     function updateExportButtonState() {
         if (!exportBtn) return;
         
@@ -407,25 +428,63 @@ document.addEventListener('DOMContentLoaded', function() {
         exportBtn.setAttribute('href', href);
     }
     
-    // Run on page load to set initial button states
-    checkDtrButtonState();
+    // run on page load to set the initial button states
     updateExportButtonState();
 
-    // Add listeners to all filters to update the buttons dynamically
+    // add listeners to all filters to update the buttons dynamically
     const filterInputs = document.querySelectorAll('.filter-controls-new input, .filter-controls-new select');
     filterInputs.forEach(input => {
         input.addEventListener('change', () => {
-            checkDtrButtonState();
             updateExportButtonState();
         });
         if (input.type === 'text') {
-            input.addEventListener('input', () => {
-                checkDtrButtonState();
+            input.addEventListener('input', () => { // 'input' is better than 'change' for text fields
                 updateExportButtonState();
             }); 
         }
     });
 });
+
+/*
+ * new functions to open and close the dtr preview modal.
+ * these are called by the clickable row.
+ */
+function openDtrModal(url, userName) {
+    const iframe = document.getElementById('dtrFrame');
+    const modal = document.getElementById('dtrPreviewModal');
+    const subtitle = document.getElementById('dtrModalSubtitle');
+    
+    if (iframe && modal) {
+        if (subtitle && userName) {
+            subtitle.textContent = "Previewing for: " + userName;
+        }
+        iframe.src = url; // load the dtr page into the iframe
+        openModal('dtrPreviewModal'); // 'openModal' is globally defined
+    }
+}
+
+function closeDtrModal() {
+    const iframe = document.getElementById('dtrFrame');
+    const modal = document.getElementById('dtrPreviewModal');
+    const subtitle = document.getElementById('dtrModalSubtitle');
+    
+    if (iframe && modal) {
+        iframe.src = 'about:blank'; // clear the iframe to stop any loading
+        if (subtitle) {
+            subtitle.textContent = "";
+        }
+        closeModal('dtrPreviewModal'); // 'closeModal' is globally defined
+    }
+}
+
+/* new function to trigger print from the modal button */
+function printDtrFromModal() {
+    const iframe = document.getElementById('dtrFrame');
+    if (iframe && iframe.contentWindow) {
+        // tell the iframe's window to execute its print function
+        iframe.contentWindow.print();
+    }
+}
 </script>
 
 <?php include 'includes/footer.php'; ?>

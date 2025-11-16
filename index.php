@@ -66,7 +66,7 @@ if (isAdmin()) {
             </div>
         </div>
 
-        <div class="card">
+        <div class="card" id="recent-activity-card">
             <div class="card-header">
                 <h3>Recent Activity</h3>
             </div>
@@ -234,6 +234,19 @@ if (isAdmin()) {
                     </div>
                 <?php endif; ?>
              </div>
+        </div>
+
+        <div class="page-hint-card">
+            <div class="page-hint-icon">
+                <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <div class="page-hint-content">
+                <h4>Note!</h4>
+                <p>
+                    This is your main dashboard. You can quickly see your registration status and check if your attendance for today has been recorded.
+                </p>
+            </div>
+        </div>
         </div>
 
     </div>

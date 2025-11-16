@@ -2,40 +2,66 @@
 // We MUST start the session to read/write the reset_otp
 require_once 'config.php';
 
+// --- SETTINGS ---
+define('OTP_VALIDITY_SECONDS', 300); // 5 minutes
+// --- END SETTINGS ---
+
+
 // If user is logged in, send them to the dashboard
 if (isLoggedIn()) {
     header('Location: index.php');
     exit;
 }
 
+// --- NEW: Handle "Back to Login" link (which also clears session) ---
+if (isset($_GET['action']) && $_GET['action'] === 'backtologin') {
+    unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time'], $_SESSION['reset_otp_verified']);
+    header('Location: login.php');
+    exit;
+}
+// --- END NEW ---
+
+// --- NEW: Invalidate session on any new GET request ---
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['action'])) {
+    // If the user lands on this page for any reason (back button, new link)
+    // without it being a special action, destroy any existing reset process.
+    unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time'], $_SESSION['reset_otp_verified']);
+}
+// --- END NEW ---
+
+
 $error = '';
 $success = '';
 
 // This variable will control which form to show:
 // 1 = Show "Enter Email" form
-// 2 = Show "Enter OTP & New Password" form
-// 3 = Show "Success" message
+// 2 = Show "Enter OTP" form
+// 3 = Show "Enter New Password" form
+// 4 = Show "Success" message
 $step = 1; // Default to step 1
 
 
-// --- THIS IS THE FIX for your session bug ---
-// Check if a reset is in progress AND if it's still valid
+// --- Step-Checking Logic (now simplified) ---
 if (isset($_SESSION['reset_user_id']) && isset($_SESSION['reset_otp']) && isset($_SESSION['reset_time'])) {
     
-    // Check if OTP is expired (1 hour = 3600 seconds)
-    if ((time() - $_SESSION['reset_time']) < 3600) {
-        // Not expired: Go to step 2
-        $step = 2;
-    } else {
+    // Check if OTP is expired
+    if ((time() - $_SESSION['reset_time']) >= OTP_VALIDITY_SECONDS) {
         // Expired: Clear the old session data and force step 1
-        unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time']);
+        unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time'], $_SESSION['reset_otp_verified']);
         $step = 1;
+        $error = 'Your 5-minute password reset session has expired. Please try again.';
+    } else {
+        // Session is active. Check which step we are on.
+        if (isset($_SESSION['reset_otp_verified']) && $_SESSION['reset_otp_verified'] === true) {
+            // Step 2 (OTP) was completed. Show Step 3 (New Password).
+            $step = 3;
+        } else {
+            // Session started, but OTP not verified yet. Show Step 2 (Enter OTP).
+            $step = 2;
+        }
     }
-} else {
-    // No reset in progress, stay on step 1
-    $step = 1;
 }
-// --- END OF FIX ---
+// --- End of Step-Checking Logic ---
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -56,13 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user) {
                 $otp = strtoupper(substr(md5(time()), 0, 6));
-                $emailBody = "Your password reset OTP is: <strong>$otp</strong><br><br>This OTP is valid for 1 hour.";
+                $emailBody = "Your password reset OTP is: <strong>$otp</strong><br><br>This OTP is valid for 5 minutes.";
 
-                // Call the email function and CHECK THE RESULT
                 if (sendEmail($email, 'Password Reset OTP', $emailBody)) {
                     $_SESSION['reset_user_id'] = $user['id'];
                     $_SESSION['reset_otp'] = $otp;
                     $_SESSION['reset_time'] = time();
+                    $_SESSION['reset_otp_verified'] = false; // Explicitly set verification to false
                     
                     $success = "An OTP has been sent to your email address. Please check your inbox.";
                     $step = 2; // Move to the next step
@@ -78,40 +104,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
-    // --- Handle Step 2: Verify OTP & Reset Password ---
-    if (isset($_POST['reset_password'])) {
+    // --- Handle Step 2: Verify OTP ---
+    if (isset($_POST['verify_otp'])) {
         $otp = strtoupper(clean($_POST['otp']));
-        $newPass = $_POST['new_password'];
-        $confirmPass = $_POST['confirm_password'];
 
-        // 1. Check if session is valid
-        if (!isset($_SESSION['reset_user_id']) || !isset($_SESSION['reset_otp'])) {
-            $error = 'Your session has expired. Please request a new OTP.';
+        // Re-check session and expiration
+        if (!isset($_SESSION['reset_user_id']) || !isset($_SESSION['reset_otp']) || (time() - $_SESSION['reset_time']) >= OTP_VALIDITY_SECONDS) {
+            $error = 'Your 5-minute session has expired. Please request a new OTP.';
             $step = 1; // Send them back to step 1
-            unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time']);
+            unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time'], $_SESSION['reset_otp_verified']);
         
-        // 2. Check if OTP matches
+        // Check if OTP matches
         } else if ($otp !== $_SESSION['reset_otp']) {
             $error = 'The OTP you entered is invalid.';
             $step = 2; // Stay on step 2 to let them retry
         
-        // 3. Check if OTP is expired
-        } else if ((time() - $_SESSION['reset_time']) >= 3600) { // 1 hour validity
-            $error = 'The OTP has expired. Please request a new one.';
+        // All checks passed.
+        } else {
+            // Mark OTP as verified and move to the next step
+            $_SESSION['reset_otp_verified'] = true;
+            $step = 3;
+            $success = 'OTP verified successfully. Please set your new password.';
+        }
+    }
+
+    
+    // --- Handle Step 3: Reset Password ---
+    if (isset($_POST['reset_password'])) {
+        $newPass = $_POST['new_password'];
+        $confirmPass = $_POST['confirm_password'];
+
+        // Final security checks: session, expiration, and OTP verification status
+        if (!isset($_SESSION['reset_user_id']) || (time() - $_SESSION['reset_time']) >= OTP_VALIDITY_SECONDS || !isset($_SESSION['reset_otp_verified']) || $_SESSION['reset_otp_verified'] !== true) {
+            $error = 'Your session is invalid or has expired. Please start over.';
             $step = 1; // Send them back to step 1
-            unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time']);
+            unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time'], $_SESSION['reset_otp_verified']);
         
-        // 4. Check if passwords match
+        // Check if passwords match
         } else if ($newPass !== $confirmPass) {
             $error = 'The new passwords do not match.';
-            $step = 2; // Stay on step 2
+            $step = 3; // Stay on step 3
         
-        // 5. Check password length
+        // Check password length
         } else if (strlen($newPass) < 8) {
             $error = 'Password must be at least 8 characters long.';
-            $step = 2; // Stay on step 2
+            $step = 3; // Stay on step 3
         
-        // 6. All checks passed. Try to update the database.
+        // All checks passed. Update the database.
         } else {
             $db = db();
             $hashedPass = hashPass($newPass);
@@ -121,15 +160,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param("si", $hashedPass, $resetUserId);
             $stmt->execute();
 
-            // 7. Verify the update worked
             if ($stmt->affected_rows === 1) {
                 $success = 'Password has been reset successfully. You can now log in with your new password.';
-                $step = 3; // Move to final "Success" step
-                unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time']);
+                $step = 4; // Move to final "Success" step
+                // Clean up all session variables
+                unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time'], $_SESSION['reset_otp_verified']);
             } else {
                 $error = 'Error: Could not update password. Please try the process again.';
                 $step = 1; // Send them back to step 1
-                unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time']);
+                unset($_SESSION['reset_otp'], $_SESSION['reset_user_id'], $_SESSION['reset_time'], $_SESSION['reset_otp_verified']);
             }
         }
     }
@@ -160,12 +199,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if ($error): ?>
                 <div class="alert alert-error" style="margin-bottom: 1.5rem;"><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
-            <?php if ($success && $step !== 3): // Show success messages for step 2 only ?>
+            <?php if ($success && $step !== 4):?>
                 <div class="alert alert-success" style="margin-bottom: 1.5rem;"><?= htmlspecialchars($success) ?></div>
             <?php endif; ?>
 
-            
-            <?php // --- STEP 1: SHOW EMAIL FORM --- ?>
             <?php if ($step === 1): ?>
                 <p style="text-align: center; color: #555; margin-bottom: 1.5rem;">Enter your email to receive an OTP.</p>
                 <form method="POST">
@@ -175,17 +212,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <button type="submit" name="send_otp" class="btn btn-primary btn-full-width">Send OTP</button>
                 </form>
+                <a href="forgot_password.php?action=backtologin" class="login-new-forgot-link" style="text-align: center; display: block; margin-top: 1.5rem;">
+                    Back
+                </a>
             <?php endif; ?>
 
-
-            <?php // --- STEP 2: SHOW OTP & NEW PASSWORD FORM --- ?>
             <?php if ($step === 2): ?>
-                <p style="text-align: center; color: #555; margin-bottom: 1.5rem;">Check your email for the OTP.</p>
+                <p style="text-align: center; color: #555; margin-bottom: 1.5rem;">Check your email for the 6-character OTP.</p>
                 <form method="POST">
                     <div class="form-group">
                         <label>Enter OTP</label>
                         <input type="text" name="otp" class="form-control" maxlength="6" placeholder="6-character code" required>
                     </div>
+                    <button type="submit" name="verify_otp" class="btn btn-primary btn-full-width">Verify OTP</button>
+                </form>
+                <a href="forgot_password.php?action=backtologin" class="login-new-forgot-link" style="text-align: center; display: block; margin-top: 1.5rem;">
+                    Back
+                </a>
+            <?php endif; ?>
+
+            <?php if ($step === 3): ?>
+                <p style="text-align: center; color: #555; margin-bottom: 1.5rem;">Please enter your new password.</p>
+                <form method="POST">
                     <div class="form-group">
                         <label>New Password</label>
                         <input type="password" name="new_password" class="form-control" placeholder="Minimum 8 characters" required>
@@ -194,26 +242,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Confirm Password</label>
                         <input type="password" name="confirm_password" class="form-control" placeholder="Re-enter new password" required>
                     </div>
-                    <button type="submit" name="reset_password" class="btn btn-primary btn-full-width">Reset Password</button>
+                    <button type="submit" name="reset_password" class="btn btn-primary btn-full-width">Set New Password</button>
                 </form>
+                <a href="forgot_password.php?action=backtologin" class="login-new-forgot-link" style="text-align: center; display: block; margin-top: 1.5rem;">
+                    Back
+                </a>
             <?php endif; ?>
-            
-            
-            <?php // --- STEP 3: SHOW SUCCESS MESSAGE --- ?>
-            <?php if ($step === 3): ?>
+
+            <?php if ($step === 4): ?>
                 <div class="alert alert-success" style="margin-bottom: 1.5rem; text-align: center;">
                     <i class="fa-solid fa-check-circle" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i><br>
                     <?= htmlspecialchars($success) ?>
                 </div>
                 <a href="login.php" class="btn btn-primary btn-full-width">
-                    <i class="fa-solid fa-arrow-right-to-bracket"></i> <span>Back to Login</span>
-                </a>
-            <?php endif; ?>
-
-            
-            <?php if ($step !== 3): // Show "Back to Login" on step 1 and 2 ?>
-                <a href="login.php" class="login-new-forgot-link" style="text-align: center; display: block; margin-top: 1.5rem;">
-                    Back to Login
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> <span>Back</span>
                 </a>
             <?php endif; ?>
 

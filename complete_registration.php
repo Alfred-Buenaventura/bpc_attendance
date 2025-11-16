@@ -16,15 +16,21 @@ $pendingCount = $pendingResult ? $pendingResult->fetch_assoc()['c'] : 0;
 // Fetch pending users
 $pendingUsers = $db->query("SELECT * FROM users WHERE status='active' AND fingerprint_registered=0 ORDER BY created_at DESC")->fetch_all(MYSQLI_ASSOC);
 
-$registeredUserList = $db->query("SELECT * FROM users WHERE status='active' AND fingerprint_registered=1 ORDER BY first_name ASC")->fetch_all(MYSQLI_ASSOC);
+// MODIFIED: Safely query for registered users and fetch the new timestamp column
+$registeredUserList = []; // Default to an empty array
+$registeredQuery = $db->query("SELECT id, faculty_id, first_name, last_name, email, role, fingerprint_registered_at FROM users WHERE status='active' AND fingerprint_registered=1 ORDER BY first_name ASC");
+if ($registeredQuery) { // Check if the query was successful
+    $registeredUserList = $registeredQuery->fetch_all(MYSQLI_ASSOC);
+}
+
 
 $pageTitle = "Complete Registration";
 $pageSubtitle = "Manage user fingerprint registration status.";
 include 'includes/header.php';
 ?>
 
-<div class="main-body registration-page"> 
-    
+<div class="main-body registration-page">
+
     <?php if (isset($error)): ?>
         <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
@@ -68,7 +74,7 @@ include 'includes/header.php';
     </div>
 
     <div class="pending-registrations-section">
-        
+
         <div class="card-header-flex" style="margin-bottom: 1.5rem; align-items: center;">
             <h3 class="section-title" style="margin: 0;">Pending Registrations (<?= $pendingCount ?>)</h3>
             <button class="btn btn-primary" onclick="openModal('notifyModal')" <?= empty($pendingUsers) ? 'disabled' : '' ?>>
@@ -107,9 +113,9 @@ include 'includes/header.php';
             </div>
         <?php endif; ?>
     </div>
-    
+
     <div class="registered-users-section" style="margin-top: 2.5rem;">
-       
+
         <h3 class="section-title" style="margin-bottom: 1.5rem;">
             Registered Users (<?= $registeredUsers ?>)
         </h3>
@@ -135,8 +141,15 @@ include 'includes/header.php';
                             <p class="user-card-info"><?= htmlspecialchars($u['email']) ?></p>
                         </div>
                         <div class="user-card-registered-status">
-                            <i class="fa-solid fa-check-circle"></i>
-                            Registered
+                            <div>
+                                <i class="fa-solid fa-check-circle"></i>
+                                <span>Registered</span>
+                            </div>
+                            <?php if (!empty($u['fingerprint_registered_at'])): ?>
+                                <span class="registration-date">
+                                    <?= date('M d, Y g:i A', strtotime($u['fingerprint_registered_at'])) ?>
+                                </span>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -155,7 +168,7 @@ include 'includes/header.php';
         </div>
         <div class="modal-body">
             <p class="fs-large">
-                Are you sure you want to send a dashboard notification to all 
+                Are you sure you want to send a dashboard notification to all
                 <strong><?= $pendingCount ?></strong> pending user(s)?
             </p>
             <p class="fs-small" style="color: var(--gray-600); margin-top: 1rem;">
@@ -226,7 +239,7 @@ function sendNotifications() {
             statusMessage.textContent = data.message;
             statusMessage.className = 'alert alert-success';
             notifyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Done';
-            
+
             setTimeout(() => {
                 closeModal('notifyModal');
                 notifyBtn.disabled = false;

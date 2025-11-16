@@ -301,7 +301,7 @@ function safe_js_data($data) {
 
     <div class="stat-card">
         <div class="stat-icon emerald">
-            <i class="fa-solid fa-user-group"></i>
+            <i class="fa-solid fa-briefcase"></i>
         </div>
         <div class="stat-details">
             <p>Non-Admin Users</p>

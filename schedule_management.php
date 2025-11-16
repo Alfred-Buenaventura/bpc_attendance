@@ -440,7 +440,7 @@ include 'includes/header.php';
                     <p class="stat-value-subtext">Total time for classes</p>
                 </div>
             </div>
-            
+
             <!-- NEW CARD 3: Vacant Hours -->
             <div class="stat-card stat-card-small">
                 <div class="stat-icon" style="color: var(--blue-600); background: var(--blue-100);">
@@ -468,6 +468,7 @@ include 'includes/header.php';
                     <p class="stat-value-subtext">First-in to last-out</p>
                 </div>
             </div>
+            
 
         <?php elseif (isAdmin()):?>
              <!-- Admin general cards (for "All Users" view) -->
@@ -987,7 +988,6 @@ include 'includes/header.php';
         </form>
     </div>
 </div>
-
 
 <script>
 // --- Global constants for functions ---
