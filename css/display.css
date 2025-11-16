@@ -492,3 +492,140 @@ NEW STYLES FOR ADMIN "ALL USERS" SCHEDULE ACCORDION
             opacity: 1;
         }
     }
+
+/* ==============================================
+   PAGE HINT CARD
+   ============================================== */
+.page-hint-card {
+    margin-top: 2.5rem;
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    
+    /* Using your theme's yellow colors */
+    background-color: var(--yellow-50); /* */
+    border: 1px solid var(--yellow-200); /* */
+    border-radius: 12px;
+    
+    /* This creates the subtle, semi-transparent look you wanted */
+    opacity: 0.9; 
+}
+
+.page-hint-icon {
+    flex-shrink: 0;
+    font-size: 1.5rem;
+    color: var(--yellow-700); /* */
+    margin-top: 0.25rem;
+}
+
+.page-hint-content h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--yellow-700); /* */
+}
+
+.page-hint-content p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--gray-700); /* */
+    line-height: 1.6;
+}
+
+/* Makes the user ID subtitle black (dark gray) */
+.attendance-table-new .user-id {
+    color: var(--gray-800); /* */
+}
+
+/* Adds the pointer cursor to the whole row */
+.attendance-table-new tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+/* Adds a hover effect to the whole row */
+.attendance-table-new tbody tr.clickable-row:hover {
+    background-color: var(--emerald-100); /* */
+}
+
+/* Makes the user's name change color when the row is hovered */
+.attendance-table-new tbody tr.clickable-row:hover .user-name {
+    color: var(--emerald-700); /* */
+}
+
+/* ==============================================
+   DTR PREVIEW MODAL & HORIZONTAL LAYOUT
+   ============================================== */
+
+/* ==============================================
+   ATTENDANCE REPORT - CLICKABLE ROW & SUBTITLE
+   ============================================== */
+
+/* Makes the user ID subtitle black (dark gray) */
+.attendance-table-new .user-id {
+    color: var(--gray-800);
+}
+
+/* Adds the pointer cursor to the whole row */
+.attendance-table-new tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+/* Adds a hover effect to the whole row */
+.attendance-table-new tbody tr.clickable-row:hover {
+    background-color: var(--emerald-100);
+}
+
+/* Makes the user's name change color when the row is hovered */
+.attendance-table-new tbody tr.clickable-row:hover .user-name {
+    color: var(--emerald-700);
+}
+
+/* ==============================================
+   ATTENDANCE REPORT - CLICKABLE ROW & SUBTITLE
+   ============================================== */
+
+/* Makes the user ID subtitle black (dark gray) */
+.attendance-table-new .user-id {
+    color: var(--gray-800);
+}
+
+/* Adds the pointer cursor to the whole row */
+.attendance-table-new tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+/* Adds a hover effect to the whole row */
+.attendance-table-new tbody tr.clickable-row:hover {
+    background-color: var(--emerald-100);
+}
+
+/* Makes the user's name change color when the row is hovered */
+.attendance-table-new tbody tr.clickable-row:hover .user-name {
+    color: var(--emerald-700);
+}
+
+/* ==============================================
+   ATTENDANCE REPORT - CLICKABLE ROW & SUBTITLE
+   ============================================== */
+
+/* Makes the user ID subtitle black (dark gray) */
+.attendance-table-new .user-id {
+    color: var(--gray-800);
+}
+
+/* Adds the pointer cursor to the whole row */
+.attendance-table-new tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+/* Adds a hover effect to the whole row */
+.attendance-table-new tbody tr.clickable-row:hover {
+    background-color: var(--emerald-100);
+}
+
+/* Makes the user's name change color when the row is hovered */
+.attendance-table-new tbody tr.clickable-row:hover .user-name {
+    color: var(--emerald-700);
+}
+

@@ -3144,240 +3144,6 @@ form input[type="date"].form-control {
 }
 /* Filter Styles for Attendance Reports End */
 
-/* print_dtr.php STYLES Start */
-/*
-===================================================================
-FIX FOR SCROLLING: Added 'overflow: auto !important;' to
-ensure this specific page can scroll, overriding the
-dashboard's 'overflow-x: hidden'.
-===================================================================
-*/
-body.dtr-body {
-    background: var(--gray-100);
-    font-family: Arial, sans-serif;
-    color: #000;
-    overflow: auto !important; /* THIS IS THE FIX */
-}
-
-.dtr-container {
-    /*
-    ===================================================================
-    FIX FOR RESPONSIVE WIDTH: Changed 'width' to 'max-width'
-    and added 'width: 95%' so it shrinks on smaller screens.
-    ===================================================================
-    */
-    max-width: 3.5in;
-    width: 95%;
-    min-height: 8.5in;
-    margin: 2rem auto;
-    background: #fff;
-    padding: 0.75in;
-    border: 1px solid #ccc;
-    box-shadow: var(--shadow-soft);
-    display: flex;
-    flex-direction: column;
-}
-
-.dtr-header {
-    text-align: center;
-    font-family: 'Times New Roman', Times, serif;
-}
-.dtr-header h3 {
-    font-weight: bold;
-    font-size: 1.1rem;
-    margin: 0;
-    text-align: left;
-}
-.dtr-header h2 {
-    font-weight: bold;
-    font-size: 1.3rem;
-    margin: 0.5rem 0;
-}
-
-.info-table {
-    width: 100%;
-    margin-top: 1.5rem;
-    font-size: 0.9rem;
-    border-collapse: collapse;
-}
-.info-table td {
-    padding: 4px 0;
-}
-.info-table .label {
-    white-space: nowrap;
-    padding-right: 10px;
-}
-.info-table .value {
-    border-bottom: 1px solid #000;
-    width: 100%;
-}
-
-.attendance-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1.5rem;
-    font-size: 0.9rem;
-    border: 2px solid #000;
-    text-align: center;
-}
-.attendance-table th,
-.attendance-table td {
-    border: 1px solid #000;
-    padding: 5px;
-    height: 25px;
-}
-.attendance-table th {
-    font-weight: bold;
-    font-size: 0.8rem;
-}
-.attendance-table .day-col {
-    width: 8%;
-}
-.attendance-table .col-small {
-    width: 10%;
-}
-.attendance-table .col-large {
-    width: 13%;
-}
-.attendance-table .total-row td {
-    font-weight: bold;
-    text-align: right;
-    padding-right: 1rem;
-}
-.attendance-table .total-row td:first-child {
-    text-align: center;
-}
-.attendance-table .time-val {
-    font-size: 0.85rem;
-}
-
-.dtr-footer-content {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    flex-grow: 0.5;
-}
-
-.signature-block {
-    margin-top: 3rem;
-    text-align: center;
-}
-.signature-line {
-    border-bottom: 1px solid #000;
-    width: 300px;
-    margin: 0 auto;
-    padding-top: 2rem;
-}
-.signature-label {
-    font-size: 0.8rem;
-    margin-top: 0.25rem;
-}
-
-.print-controls {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: white;
-    padding: 1rem;
-    border-radius: 8px;
-    box-shadow: var(--shadow-strong);
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.print-controls .btn {
-    display: flex;
-    gap: 0.5rem;
-    text-decoration: none;
-    margin: 0;
-}
-
-/*
-===================================================================
-MODIFICATION: This is the new @media print block
-===================================================================
-*/
-@media print {
-    /* This suggests landscape orientation to the browser */
-    @page {
-        size: landscape;
-        margin: 0.25in;
-    }
-
-    body.dtr-body {
-        background: #fff;
-        margin: 0;
-        overflow: hidden !important; /* Hide scroll on print */
-    }
-    .print-controls, .back-link {
-        display: none !important;
-    }
-    
-    /* This is the main DTR form */
-    .dtr-container {
-        width: 48%;                /* Each DTR is slightly less than half the page */
-        max-width: 48%;
-        height: 7.5in;             /* <-- FIXED HEIGHT to fit on 8.5in paper */
-        min-height: 0 !important;  /* <-- OVERRIDE screen style */
-        margin: 0;
-        border: 1px solid #000;
-        box-shadow: none;
-        padding: 0.25in;
-        
-        display: inline-block;
-        vertical-align: top;
-        margin-left: 0.5%;
-        margin-right: 0.5%;
-        box-sizing: border-box; 
-    }
-    
-    /* Scale down all the fonts inside */
-    .dtr-container,
-    .dtr-container .info-table,
-    .dtr-container .dtr-footer-content,
-    .dtr-container .signature-label {
-        font-size: 0.8rem; 
-    }
-    .dtr-container .attendance-table {
-        font-size: 0.8rem;
-        margin-top: 0.5rem;
-    }
-    .dtr-container .attendance-table th {
-        font-size: 0.7rem;
-    }
-    .dtr-container .attendance-table .time-val {
-        font-size: 0.8rem;
-    }
-    .dtr-container .dtr-header h2 {
-        font-size: 1.1rem;
-        margin: 0.25rem 0;
-    }
-    .dtr-container .dtr-header h3 {
-        font-size: 0.9rem;
-    }
-    .dtr-container .info-table {
-        margin-top: 0.5rem;
-    }
-    .dtr-container .info-table .value {
-        font-size: 0.9rem;
-    }
-    .dtr-container .signature-block {
-        margin-top: 1rem;
-        padding-top: 1rem;
-    }
-    .dtr-container .attendance-table th,
-    .dtr-container .attendance-table td {
-        padding: 3px; /* Tighter padding */
-        height: auto;
-    }
-    .dtr-container .dtr-footer-content {
-        margin-top: 0.5rem;
-    }
-}
-/* print_dtr.php STYLES End */
-
 /* User Dashboard Styles Start */
 .user-dashboard-body {
     padding: 1.5rem 2rem;
@@ -3915,14 +3681,6 @@ body, html {
             box-sizing: border-box;
         }
 
-        
-        body.dtr-body {
-            background: var(--gray-100);
-            font-family: Arial, sans-serif;
-            color: #000;
-            overflow: auto !important; 
-        }
-
         .dtr-container-wrapper {
             display: flex;
             flex-direction: column; 
@@ -3934,7 +3692,7 @@ body, html {
         .dtr-container {
             max-width: 8.5in;
             width: 95%;
-            min-height: 11in;
+            min-height: 18in;
             margin: 0 auto;
             background: #fff;
             padding: 0.75in;
@@ -4039,7 +3797,7 @@ body, html {
             margin-top: 0.25rem;
         }
 
-        
+
         .print-controls {
             position: fixed;
             top: 20px;
@@ -4175,3 +3933,234 @@ body, html {
                 margin-top: 0.1rem;
             }
         }
+
+/*
+ * STYLES FOR THE PUBLIC ATTENDANCE DISPLAY
+ * This file styles the 'display.php' page.
+ */
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; 
+}
+
+body.display-body {
+    background: var(--gray-50, #f9fafb); 
+    color: var(--gray-900, #111827);
+    overflow: hidden;
+}
+
+.display-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    position: relative;
+}
+
+/* 1. The "Welcome" or "Ready" state */
+.default-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+}
+
+.default-state .logo-icon {
+    font-size: 8rem;
+    color: var(--emerald-600, #059669);
+}
+
+.default-state h1 {
+    font-size: 4rem;
+    font-weight: 700;
+    color: var(--gray-800, #1f2937);
+    margin: 2rem 0 1rem 0;
+}
+
+.default-state p {
+    font-size: 2rem;
+    color: var(--gray-500, #6b7280);
+}
+
+/* 2. The pop-up card that shows on scan */
+.scan-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.7);
+    background: white;
+    border-radius: 24px;
+    box-shadow: var(--shadow-strong, 0 8px 24px rgba(0, 0, 0, 0.1)); 
+    width: 90%;
+    max-width: 800px;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem;
+    border: 4px solid var(--emerald-500, #10b981);
+}
+
+.scan-card.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* 3. Card Content */
+.scan-card .icon-badge {
+    font-size: 3rem;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    margin-bottom: 2rem;
+}
+
+.scan-card .icon-badge.time-in { background: var(--emerald-600, #059669); }
+.scan-card .icon-badge.time-out { background: var(--red-600, #dc2626); }
+
+.scan-card .user-name {
+    font-size: 4.5rem;
+    font-weight: 700;
+    color: var(--gray-800, #1f2937);
+    line-height: 1.1;
+}
+
+.scan-card .scan-status {
+    font-size: 3rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+}
+
+.scan-card .scan-status.time-in { color: var(--emerald-700, #047857); }
+.scan-card .scan-status.time-out { color: var(--red-700, #B91C1C); }
+
+.scan-card .time-date {
+    font-size: 2rem;
+    color: var(--gray-600, #4b5563);
+    margin-top: 1.5rem;
+}
+
+/* ==============================================
+   ATTENDANCE REPORT - CLICKABLE ROW & SUBTITLE
+   ============================================== */
+
+/* Makes the user ID subtitle black (dark gray) */
+.attendance-table-new .user-id {
+    color: var(--gray-800);
+}
+
+/* Adds the pointer cursor to the whole row */
+.attendance-table-new tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+/* Adds a hover effect to the whole row */
+.attendance-table-new tbody tr.clickable-row:hover {
+    background-color: var(--emerald-100);
+}
+
+/* Makes the user's name change color when the row is hovered */
+.attendance-table-new tbody tr.clickable-row:hover .user-name {
+    color: var(--emerald-700);
+}
+
+/* ==============================================
+   DTR PREVIEW MODAL & SCROLLBAR FIX
+   ============================================== */
+
+/* 1. Makes the modal container large */
+.modal-dtr-preview .modal-content {
+    width: 95vw;
+    max-width: 1800px;
+    height: 90vh;
+    max-height: 90vh;
+}
+
+/* 2. Styles the modal body to SCROLL (this is the *only* scrollbar we want) */
+.modal-dtr-preview .modal-body {
+    padding: 0;
+    overflow: auto; /* This enables scrolling */
+    height: 100%;
+    background: var(--gray-200);
+}
+
+/* 3. Styles the iframe to be taller than the modal so modal body can scroll */
+.modal-dtr-preview iframe {
+    width: 100%;
+    height: 1400px; /* Fixed height larger than modal to enable scrolling */
+    border: none;
+    display: block;
+}
+
+/* 4. MODIFIES print_dtr.php body to REMOVE the inner scrollbar */
+html body.dtr-body {
+    background: var(--gray-100) !important;
+    font-family: Arial, sans-serif !important;
+    color: #000 !important;
+    margin: 0 !important; 
+    padding: 0 !important;
+    overflow: hidden !important; /* Prevent inner body scrollbar */
+    min-height: 100%;
+}
+
+/* 5. MODIFIES print_dtr.php layout to be HORIZONTAL */
+.dtr-container-wrapper {
+    display: flex;
+    flex-direction: row; 
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    min-width: 17.5in; 
+    box-sizing: border-box;
+    min-height: 100vh; /* Use viewport height to ensure full content visibility */
+}
+
+/* 6. Ensure DTR containers don't shrink */
+.dtr-container-wrapper .dtr-container {
+    flex-shrink: 0;
+    width: 8.5in;
+    max-width: 8.5in;
+    margin: 0;
+    padding: 0.5in;
+    min-height: 11in; /* Changed to min-height to allow expansion */
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    background: #fff; 
+}
+
+/* 7. Override print-media styles for screen view */
+@media print {
+    /* This rule is for when the user *actually* prints */
+    html body.dtr-body {
+        overflow: auto !important;
+    }
+
+    .dtr-container-wrapper {
+        overflow: visible;
+        min-width: 0;
+        padding: 0;
+        gap: 0.5%;
+        height: auto;
+    }
+    
+    .dtr-container-wrapper .dtr-container {
+        width: 48%; 
+        height: 7.5in;
+        padding: 0.25in;
+        box-shadow: none;
+        margin: 0.5%;
+    }
+}
